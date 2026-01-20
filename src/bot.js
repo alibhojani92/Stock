@@ -1,142 +1,79 @@
-import { getKeyboard } from "./keyboard";
-import {
-  startAttempt,
-  stopAttempt,
-  startWithdraw,
-  handleWithdrawAmount,
-  getBalance
-} from "./logic";
-import {
-  todayReport,
-  weeklyReport,
-  monthlyReport
-} from "./report";
-
 export async function handleUpdate(update, env) {
-  const message = update.message;
-  const callback = update.callback_query;
+  const msg = update.message;
+  const cb = update.callback_query;
 
-  // 👉 Detect chat + user
-  const chatId = message?.chat?.id || callback?.message?.chat?.id;
-  const userId = message?.from?.id || callback?.from?.id;
-
-  if (!chatId || !userId) {
-    return new Response("No chat/user");
-  }
-
-  // 👉 Text command
-  if (message?.text) {
-    return await handleCommand(
-      message.text.trim(),
-      chatId,
-      userId,
-      env
-    );
-  }
-
-  // 👉 Inline button (callback)
-  if (callback?.data) {
-    return await handleCommand(
-      callback.data,
-      chatId,
-      userId,
-      env,
-      true
-    );
-  }
-
-  return new Response("OK");
-}
-
-async function handleCommand(text, chatId, userId, env, isCallback = false) {
-  switch (text) {
-
-    case "/start":
-      return sendMessage(env, chatId,
-        "Welcome 👋\nUse buttons or commands to continue.",
-        getKeyboard()
-      );
-
-    case "/help":
-      return sendMessage(env, chatId, getHelpText());
-
-    case "/start_attempt":
-      return startAttempt(env, chatId, userId);
-
-    case "/stop_attempt":
-      return stopAttempt(env, chatId, userId);
-
-    case "/withdraw":
-      return startWithdraw(env, chatId, userId);
-
-    case "/balance":
-      return getBalance(env, chatId, userId);
-
-    case "/today":
-      return todayReport(env, chatId, userId);
-
-    case "/weekly":
-      return weeklyReport(env, chatId, userId);
-
-    case "/monthly":
-      return monthlyReport(env, chatId, userId);
-
-    default:
-      // If number input (amount)
-      if (/^\d+$/.test(text)) {
-        return handleWithdrawAmount(env, chatId, userId, Number(text));
+  // ACK callback
+  if (cb?.id) {
+    await fetch(
+      `https://api.telegram.org/bot${env.BOT_TOKEN}/answerCallbackQuery`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ callback_query_id: cb.id })
       }
-
-      return sendMessage(env, chatId, "❓ Unknown command. Type /help");
+    );
   }
-}
 
-/* ---------------- HELP TEXT ---------------- */
+  const chatId = msg?.chat?.id || cb?.message?.chat?.id;
+  const userId = msg?.from?.id || cb?.from?.id;
+  const text = msg?.text || cb?.data;
 
-function getHelpText() {
-  return `
-🆘 Help – Available Commands
+  if (!chatId || !userId || !text) return;
 
-/start_attempt
-Start a new attempt (Max 8 per day)
+  /* ---------- COMMANDS FIRST ---------- */
 
-/stop_attempt
-Stop current attempt and enter earned amount
+  if (text === "/start") {
+    await send(env, chatId, "Welcome 👋", getKeyboard());
+    return;
+  }
 
-/withdraw
-Withdraw amount from balance
+  if (text === "/start_attempt") {
+    await L.startAttempt(env, chatId, userId);
+    return;
+  }
 
-/balance
-Check available balance
+  if (text === "/stop_attempt") {
+    await L.stopAttempt(env, chatId, userId);
+    return;
+  }
 
-/today
-Today report
+  if (text === "/withdraw") {
+    await L.withdrawStart(env, chatId, userId);
+    return;
+  }
 
-/weekly
-Weekly report
+  if (text === "/balance") {
+    await L.balance(env, chatId, userId);
+    return;
+  }
 
-/monthly
-Monthly report
+  if (text === "/today") {
+    await R.todayReport(env, chatId, userId);
+    return;
+  }
 
-/help
-Show this help
-`;
-}
+  if (text === "/weekly") {
+    await R.weeklyReport(env, chatId, userId);
+    return;
+  }
 
-/* ---------------- SEND MESSAGE ---------------- */
+  if (text === "/monthly") {
+    await R.monthlyReport(env, chatId, userId);
+    return;
+  }
 
-async function sendMessage(env, chatId, text, replyMarkup = null) {
-  const payload = {
-    chat_id: chatId,
-    text,
-    reply_markup: replyMarkup
-  };
+  if (text === "/help") {
+    await send(env, chatId, "Use buttons or commands", getKeyboard());
+    return;
+  }
 
-  await fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  });
+  /* ---------- NUMBER INPUT LAST ---------- */
 
-  return new Response("OK");
+  if (/^\d+$/.test(text)) {
+    await L.handleAmount(env, chatId, userId, Number(text));
+    return;
+  }
+
+  // fallback
+  await send(env, chatId, "❓ Unknown command. Use /help");
 }

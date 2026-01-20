@@ -1,0 +1,11 @@
+name = "telegram-attempt-bot"
+main = "src/index.js"
+compatibility_date = "2024-12-01"
+
+[vars]
+BOT_TOKEN = "8431661453:AAHMcYQ6WXhvIwDmMuyadO_9ijtSllBWLwM"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "attempt_db"
+database_id = "3a697187-a8f4-448c-9042-cdc0560d25da"

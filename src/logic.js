@@ -102,7 +102,14 @@ export async function startAttempt(env, chatId, userId) {
   await setSession(env, userId, start);
 
   const time = formatIST(start);
-  await send(env, chatId, `⏱ Attempt Started\nStart Time: ${time}`);
+  await send(
+  env,
+  chatId,
+  `⏱ Attempt Started
+Start Time: ${formatIST(start)}
+
+${pick(MOTIVATION)}`
+);
     }
 import { getSession, clearSession } from "./queries";
 
@@ -131,13 +138,13 @@ export async function stopAttempt(env, chatId, userId) {
 
   // 1️⃣ Time summary
   await send(
-    env,
-    chatId,
-    `⏹ Attempt Stopped
-Start Time: ${formatIST(start)}
-Stop Time: ${formatIST(stop)}
-⏳ Total Time: ${total}`
-  );
+  env,
+  chatId,
+  `✅ Attempt #${count + 1} completed
+💰 Earned: ₹${amount}
+
+${pick(PRAISE)}`
+);
 
   // 2️⃣ Ask amount (THIS WAS MISSING)
   await send(env, chatId, "✍️ Enter earned amount");

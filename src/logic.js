@@ -11,7 +11,15 @@ const MAX_ATTEMPTS = 8;
 function today() {
   return new Date().toISOString().slice(0, 10);
 }
-
+function formatIST(time) {
+  return new Date(time).toLocaleTimeString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true
+  });
+}
 async function send(env, chatId, text) {
   await fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/sendMessage`, {
     method: "POST",

@@ -91,11 +91,13 @@ export async function earningsByDate(env, userId, fromDate) {
 
 export async function setBaseAmount(env, userId, amount) {
   const db = getDB(env);
+
   await db
     .prepare(
       `INSERT INTO base_amounts (user_id, amount)
        VALUES (?, ?)
-       ON CONFLICT(user_id) DO UPDATE SET amount = ?`
+       ON CONFLICT(user_id)
+       DO UPDATE SET amount = amount + ?`
     )
     .bind(userId, amount, amount)
     .run();

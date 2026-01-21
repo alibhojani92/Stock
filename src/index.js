@@ -14,6 +14,7 @@ export default {
       return new Response("Bad Request", { status: 400 });
     }
 
+    // ⚡ Ultra-fast: respond immediately, process in background
     ctx.waitUntil(
       handleUpdate(update, env).catch(err => {
         console.error("HANDLE UPDATE ERROR:", err);

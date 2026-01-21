@@ -2,14 +2,14 @@ import { getKeyboard } from "./keyboard";
 import * as L from "./logic";
 import * as R from "./report";
 
-async function send(env, chatId, text, kb) {
+async function send(env, chatId, text, kb = null) {
   await fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       chat_id: chatId,
       text,
-      reply_markup: kb
+      reply_markup: kb || undefined
     })
   });
 }
@@ -19,7 +19,7 @@ export async function handleUpdate(update, env) {
     const msg = update.message;
     const cb = update.callback_query;
 
-    // ACK inline button
+    // ACK callback immediately
     if (cb?.id) {
       await fetch(
         `https://api.telegram.org/bot${env.BOT_TOKEN}/answerCallbackQuery`,
@@ -33,74 +33,74 @@ export async function handleUpdate(update, env) {
 
     const chatId = msg?.chat?.id || cb?.message?.chat?.id;
     const userId = msg?.from?.id || cb?.from?.id;
-    const command = msg?.text || cb?.data;
+    const text = msg?.text || cb?.data;
+    const firstName = msg?.from?.first_name || cb?.from?.first_name || "Friend";
 
-    if (!chatId || !userId || !command) return;
+    if (!chatId || !userId || !text) return;
 
-    /* -------- CORE COMMANDS -------- */
-
-    if (command === "/start") {
+    // ---- CORE ----
+    if (text === "/start") {
       await send(
         env,
         chatId,
-        "Welcome 👋\nUse buttons or commands below.",
+        `👋 Welcome, ${firstName}!
+
+🚀 Welcome to Compounding Tracking Bot 📈
+Build discipline. Let compounding do the rest 💎`,
         getKeyboard()
       );
       return;
     }
 
-    if (command === "/help") {
-      await send(env, chatId, "Use buttons or commands.", getKeyboard());
+    if (text === "/help") {
+      await send(env, chatId, "🆘 Use the buttons below.", getKeyboard());
       return;
     }
 
-    /* -------- FEATURE COMMANDS -------- */
-
-    if (command === "/start_attempt") {
+    // ---- ACTIONS ----
+    if (text === "/start_attempt") {
       await L.startAttempt(env, chatId, userId);
       return;
     }
 
-    if (command === "/stop_attempt") {
+    if (text === "/stop_attempt") {
       await L.stopAttempt(env, chatId, userId);
       return;
     }
 
-    if (command === "/withdraw") {
+    if (text === "/withdraw") {
       await L.withdrawStart(env, chatId, userId);
       return;
     }
 
-    if (command === "/balance") {
+    if (text === "/balance") {
       await L.balance(env, chatId, userId);
       return;
     }
 
-    if (command === "/today") {
+    if (text === "/today") {
       await R.todayReport(env, chatId, userId);
       return;
     }
 
-    if (command === "/weekly") {
+    if (text === "/weekly") {
       await R.weeklyReport(env, chatId, userId);
       return;
     }
 
-    if (command === "/monthly") {
+    if (text === "/monthly") {
       await R.monthlyReport(env, chatId, userId);
       return;
     }
 
-    /* -------- NUMBER INPUT LAST -------- */
-
-    if (/^\d+$/.test(command)) {
-      await L.handleAmount(env, chatId, userId, Number(command));
+    // ---- NUMBER INPUT LAST ----
+    if (/^\d+$/.test(text)) {
+      await L.handleAmount(env, chatId, userId, Number(text));
       return;
     }
 
     await send(env, chatId, "❓ Unknown command. Use /help");
-
   } catch (err) {
     console.error("BOT ERROR:", err);
   }
-                            }
+    }

@@ -130,22 +130,21 @@ export async function stopAttempt(env, chatId, userId) {
   const hr = Math.floor(diff / (1000 * 60 * 60));
 
   const total =
-    `${hr.toString().padStart(2, "0")}:` +
-    `${min.toString().padStart(2, "0")}:` +
-    `${sec.toString().padStart(2, "0")}`;
+    hr.toString().padStart(2, "0") + ":" +
+    min.toString().padStart(2, "0") + ":" +
+    sec.toString().padStart(2, "0");
 
   await clearSession(env, userId);
 
-  // 1️⃣ Time summary
-  await send(
-  env,
-  chatId,
-  `✅ Attempt #${count + 1} completed
-💰 Earned: ₹${amount}
+  // ✅ SAFE plain text message
+  const msg =
+    "⏹ Attempt Stopped\n" +
+    "Start Time: " + formatIST(start) + "\n" +
+    "Stop Time: " + formatIST(stop) + "\n" +
+    "⏳ Total Time: " + total;
 
-${pick(PRAISE)}`
-);
+  await send(env, chatId, msg);
 
-  // 2️⃣ Ask amount (THIS WAS MISSING)
+  // ✅ Ask amount (separate message)
   await send(env, chatId, "✍️ Enter earned amount");
 }

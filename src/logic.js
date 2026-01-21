@@ -79,3 +79,12 @@ export async function balance(env, chatId, userId) {
     `💼 Wallet\nEarned ₹${earned}\nWithdrawn ₹${withdrawn}\n━━━━━━\n₹${earned - withdrawn}`
   );
 }
+import { setSession } from "./queries";
+
+export async function startAttempt(env, chatId, userId) {
+  const start = Date.now();
+  await setSession(env, userId, start);
+
+  const time = new Date(start).toLocaleTimeString();
+  await send(env, chatId, `⏱ Attempt Started\nStart Time: ${time}`);
+    }

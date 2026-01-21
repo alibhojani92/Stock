@@ -10,17 +10,16 @@ export default {
     try {
       update = await request.json();
     } catch (e) {
-      return new Response("Invalid JSON", { status: 400 });
+      console.error("Invalid JSON");
+      return new Response("Bad Request", { status: 400 });
     }
 
-    // 🔥 Run bot logic safely in background
     ctx.waitUntil(
       handleUpdate(update, env).catch(err => {
-        console.error("Bot error:", err);
+        console.error("HANDLE UPDATE ERROR:", err);
       })
     );
 
-    // 🔥 Telegram gets instant response
     return new Response("OK");
   }
 };

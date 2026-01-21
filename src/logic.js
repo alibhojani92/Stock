@@ -3,23 +3,30 @@ import {
   insertAttempt,
   sumEarnings,
   insertWithdrawal,
-  sumWithdrawals
+  sumWithdrawals,
+  setSession,
+  getSession,
+  clearSession
 } from "./queries";
 
 const MAX_ATTEMPTS = 8;
 
+/* ================= HELPERS ================= */
+
 function today() {
   return new Date().toISOString().slice(0, 10);
 }
+
+// IST time WITHOUT seconds
 function formatIST(time) {
   return new Date(time).toLocaleTimeString("en-IN", {
     timeZone: "Asia/Kolkata",
     hour: "2-digit",
     minute: "2-digit",
-    second: "2-digit",
     hour12: true
   });
 }
+
 const MOTIVATION = [
   "🔥 Great start! Consistency beats motivation every time 💪",
   "📈 Small progress daily creates massive results!",
@@ -43,6 +50,7 @@ const PRAISE = [
 function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
+
 async function send(env, chatId, text) {
   await fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/sendMessage`, {
     method: "POST",
@@ -51,67 +59,23 @@ async function send(env, chatId, text) {
   });
 }
 
-/* ---------- START ATTEMPT ---------- */
-
-
-/* ---------- WITHDRAW ---------- */
-export async function withdrawStart(env, chatId) {
-  await send(env, chatId, "✍️ Enter withdrawal amount");
-}
-
-/* ---------- HANDLE NUMBER INPUT ---------- */
-export async function handleAmount(env, chatId, userId, amount) {
-  const date = today();
-
-  const earned = await sumEarnings(env, userId);
-  const withdrawn = await sumWithdrawals(env, userId);
-  const balance = earned - withdrawn;
-
-  // withdrawal
-  if (amount <= balance) {
-    await insertWithdrawal(env, userId, date, amount);
-    await send(env, chatId, `💸 Withdrawn ₹${amount}\nBalance ₹${balance - amount}`);
-    return;
-  }
-
-  // earning
-  const count = await getTodayAttemptCount(env, userId, date);
-  if (count >= MAX_ATTEMPTS) {
-    await send(env, chatId, "⚠️ Daily limit reached");
-    return;
-  }
-
-  await insertAttempt(env, userId, date, count + 1, amount);
-  await send(env, chatId, `💰 Earned ₹${amount}`);
-}
-
-/* ---------- BALANCE ---------- */
-export async function balance(env, chatId, userId) {
-  const earned = await sumEarnings(env, userId);
-  const withdrawn = await sumWithdrawals(env, userId);
-  await send(
-    env,
-    chatId,
-    `💼 Wallet\nEarned ₹${earned}\nWithdrawn ₹${withdrawn}\n━━━━━━\n₹${earned - withdrawn}`
-  );
-}
-import { setSession } from "./queries";
+/* ================= START ATTEMPT ================= */
 
 export async function startAttempt(env, chatId, userId) {
   const start = Date.now();
   await setSession(env, userId, start);
 
-  const time = formatIST(start);
   await send(
-  env,
-  chatId,
-  `⏱ Attempt Started
+    env,
+    chatId,
+    `⏱ Attempt Started
 Start Time: ${formatIST(start)}
 
 ${pick(MOTIVATION)}`
-);
-    }
-import { getSession, clearSession } from "./queries";
+  );
+}
+
+/* ================= STOP ATTEMPT ================= */
 
 export async function stopAttempt(env, chatId, userId) {
   const session = await getSession(env, userId);
@@ -125,26 +89,96 @@ export async function stopAttempt(env, chatId, userId) {
   const stop = Date.now();
 
   const diff = stop - start;
-  const sec = Math.floor(diff / 1000) % 60;
-  const min = Math.floor(diff / (1000 * 60)) % 60;
-  const hr = Math.floor(diff / (1000 * 60 * 60));
+  const minutes = Math.floor(diff / (1000 * 60));
+  const hr = Math.floor(minutes / 60);
+  const min = minutes % 60;
 
   const total =
-    hr.toString().padStart(2, "0") + ":" +
-    min.toString().padStart(2, "0") + ":" +
-    sec.toString().padStart(2, "0");
+    hr.toString().padStart(2, "0") +
+    ":" +
+    min.toString().padStart(2, "0");
 
   await clearSession(env, userId);
 
-  // ✅ SAFE plain text message
-  const msg =
-    "⏹ Attempt Stopped\n" +
-    "Start Time: " + formatIST(start) + "\n" +
-    "Stop Time: " + formatIST(stop) + "\n" +
-    "⏳ Total Time: " + total;
+  await send(
+    env,
+    chatId,
+    `⏹ Attempt Stopped
+Start Time: ${formatIST(start)}
+Stop Time: ${formatIST(stop)}
+⏳ Total Time: ${total}`
+  );
 
-  await send(env, chatId, msg);
+  // motivation after stop
+  await send(env, chatId, pick(PRAISE));
 
-  // ✅ Ask amount (separate message)
+  // ask amount
   await send(env, chatId, "✍️ Enter earned amount");
+}
+
+/* ================= WITHDRAW ================= */
+
+export async function withdrawStart(env, chatId) {
+  await send(env, chatId, "✍️ Enter withdrawal amount");
+}
+
+/* ================= HANDLE NUMBER INPUT ================= */
+
+export async function handleAmount(env, chatId, userId, amount) {
+  const date = today();
+
+  const earned = await sumEarnings(env, userId);
+  const withdrawn = await sumWithdrawals(env, userId);
+  const balance = earned - withdrawn;
+
+  // withdrawal
+  if (amount <= balance) {
+    await insertWithdrawal(env, userId, date, amount);
+    await send(
+      env,
+      chatId,
+      `💸 Withdrawn ₹${amount}
+Balance ₹${balance - amount}`
+    );
+    return;
+  }
+
+  // earning (daily limit check)
+  const count = await getTodayAttemptCount(env, userId, date);
+  if (count >= MAX_ATTEMPTS) {
+    await send(
+      env,
+      chatId,
+      "⚠️ Daily limit reached\nMaximum 8 attempts per day 💪"
+    );
+    return;
+  }
+
+  await insertAttempt(env, userId, date, count + 1, amount);
+
+  await send(
+    env,
+    chatId,
+    `✅ Attempt #${count + 1} completed
+💰 Earned ₹${amount}
+
+${pick(PRAISE)}`
+  );
+}
+
+/* ================= BALANCE ================= */
+
+export async function balance(env, chatId, userId) {
+  const earned = await sumEarnings(env, userId);
+  const withdrawn = await sumWithdrawals(env, userId);
+
+  await send(
+    env,
+    chatId,
+    `💼 Wallet
+Earned ₹${earned}
+Withdrawn ₹${withdrawn}
+━━━━━━━━━━
+₹${earned - withdrawn}`
+  );
 }

@@ -1,6 +1,7 @@
 import {
   earningsByDate,
-  sumWithdrawals
+  sumWithdrawals,
+  getBaseAmount
 } from "./queries";
 
 /* ---------------- HELPERS ---------------- */
@@ -32,16 +33,19 @@ function splitProfitLoss(rows) {
 export async function todayReport(env, chatId, userId) {
   const date = today();
   const rows = await earningsByDate(env, userId, date);
+
+  const base = await getBaseAmount(env, userId);
   const withdrawn = await sumWithdrawals(env, userId, date);
 
   const { profit, loss } = splitProfitLoss(rows);
-  const net = profit - loss - withdrawn;
+  const net = base + profit - loss - withdrawn;
 
   return send(
     env,
     chatId,
     `📅 Today Report (${date})
 
+💰 Base: ₹${base}
 📈 Profit: ₹${profit}
 📉 Loss: ₹${loss}
 💸 Withdrawn: ₹${withdrawn}
@@ -59,6 +63,9 @@ export async function weeklyReport(env, chatId, userId) {
   if (!rows.length) {
     return send(env, chatId, "📆 Weekly Report\n\nNo data available.");
   }
+
+  const base = await getBaseAmount(env, userId);
+  const withdrawn = await sumWithdrawals(env, userId);
 
   let text = "📆 Weekly Report\n\n";
   let grouped = {};
@@ -81,10 +88,14 @@ export async function weeklyReport(env, chatId, userId) {
     text += `  📉 Loss: ₹${loss}\n\n`;
   }
 
+  const net = base + totalProfit - totalLoss - withdrawn;
+
   text += `━━━━━━━━━━━━━━\n`;
+  text += `💰 Base: ₹${base}\n`;
   text += `📈 Total Profit: ₹${totalProfit}\n`;
   text += `📉 Total Loss: ₹${totalLoss}\n`;
-  text += `💼 Net: ₹${totalProfit - totalLoss}`;
+  text += `💸 Withdrawn: ₹${withdrawn}\n`;
+  text += `💼 Net Balance: ₹${net}`;
 
   return send(env, chatId, text);
 }
@@ -98,6 +109,9 @@ export async function monthlyReport(env, chatId, userId) {
   if (!rows.length) {
     return send(env, chatId, "🗓 Monthly Report\n\nNo data available.");
   }
+
+  const base = await getBaseAmount(env, userId);
+  const withdrawn = await sumWithdrawals(env, userId);
 
   let grouped = {};
   for (const r of rows) {
@@ -114,16 +128,20 @@ export async function monthlyReport(env, chatId, userId) {
     totalLoss += loss;
   }
 
+  const net = base + totalProfit - totalLoss - withdrawn;
+
   return send(
     env,
     chatId,
     `🗓 Monthly Report
 
 📅 Active Days: ${Object.keys(grouped).length}
+💰 Base: ₹${base}
 📈 Total Profit: ₹${totalProfit}
 📉 Total Loss: ₹${totalLoss}
+💸 Withdrawn: ₹${withdrawn}
 ━━━━━━━━━━━━━━
-💼 Net Balance: ₹${totalProfit - totalLoss}`
+💼 Net Balance: ₹${net}`
   );
 }
 

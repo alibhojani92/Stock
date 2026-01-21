@@ -68,8 +68,6 @@ Build discipline. Let compounding do the rest 💎`,
 
     if (text === "/stop_attempt") {
       await L.stopAttempt(env, chatId, userId);
-
-      // ✅ FIX: show PROFIT / LOSS buttons
       await send(
         env,
         chatId,
@@ -79,7 +77,7 @@ Build discipline. Let compounding do the rest 💎`,
       return;
     }
 
-    /* ================= PROFIT / LOSS BUTTON ================= */
+    /* ================= PROFIT / LOSS ================= */
 
     if (text === "RESULT_PROFIT") {
       await L.selectResult(env, chatId, userId, "PROFIT");
@@ -120,7 +118,7 @@ Build discipline. Let compounding do the rest 💎`,
       return;
     }
 
-    /* ================= NUMBER INPUT (LAST) ================= */
+    /* ================= NUMBER INPUT ================= */
 
     if (/^\d+$/.test(text)) {
       await L.handleAmount(env, chatId, userId, Number(text));
@@ -131,4 +129,4 @@ Build discipline. Let compounding do the rest 💎`,
   } catch (err) {
     console.error("BOT ERROR:", err);
   }
-}
+      }

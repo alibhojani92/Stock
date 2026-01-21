@@ -62,7 +62,7 @@ export async function earningsByDate(env, userId, fromDate) {
 
 /* ================= BASE AMOUNT ================= */
 
-// Set base amount (only once or when balance = 0)
+// Set base amount
 export async function setBaseAmount(env, userId, amount) {
   const db = getDB(env);
   await db
@@ -143,6 +143,38 @@ export async function clearSession(env, userId) {
     .run();
 }
 
+/* ================= TEMP STATE (NEW – REQUIRED) ================= */
+
+// save current user state (PROFIT / LOSS / WITHDRAW)
+export async function setTempState(env, userId, state) {
+  const db = env.DB;
+  await db
+    .prepare(
+      `INSERT INTO temp_state (user_id, state)
+       VALUES (?, ?)
+       ON CONFLICT(user_id) DO UPDATE SET state = ?`
+    )
+    .bind(userId, state, state)
+    .run();
+}
+
+export async function getTempState(env, userId) {
+  const db = env.DB;
+  const res = await db
+    .prepare("SELECT state FROM temp_state WHERE user_id = ?")
+    .bind(userId)
+    .first();
+  return res?.state || null;
+}
+
+export async function clearTempState(env, userId) {
+  const db = env.DB;
+  await db
+    .prepare("DELETE FROM temp_state WHERE user_id = ?")
+    .bind(userId)
+    .run();
+}
+
 /* ================= ADMIN ================= */
 
 // All users
@@ -156,8 +188,6 @@ export async function getAllUsers(env) {
 
 // Per-user summary
 export async function getUserSummary(env, userId) {
-  const db = getDB(env);
-
   const [base, profit] = await Promise.all([
     getBaseAmount(env, userId),
     sumEarnings(env, userId)

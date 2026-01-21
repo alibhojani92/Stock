@@ -21,22 +21,7 @@ async function send(env, chatId, text) {
 }
 
 /* ---------- START ATTEMPT ---------- */
-export async function startAttempt(env, chatId, userId) {
-  const date = today();
-  const count = await getTodayAttemptCount(env, userId, date);
 
-  if (count >= MAX_ATTEMPTS) {
-    await send(env, chatId, "⚠️ Daily limit reached (8)");
-    return;
-  }
-
-  await send(env, chatId, `✅ Attempt #${count + 1} started`);
-}
-
-/* ---------- STOP ATTEMPT ---------- */
-export async function stopAttempt(env, chatId) {
-  await send(env, chatId, "✍️ Enter earned amount");
-}
 
 /* ---------- WITHDRAW ---------- */
 export async function withdrawStart(env, chatId) {

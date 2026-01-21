@@ -1,4 +1,4 @@
-import { getKeyboard, profitLossKeyboard } from "./keyboard";
+import { getKeyboard, profitLossKeyboard, adminKeyboard } from "./keyboard";
 import * as L from "./logic";
 import * as R from "./report";
 
@@ -118,6 +118,25 @@ Build discipline. Let compounding do the rest 💎`,
       return;
     }
 
+    /* ================= ADMIN ================= */
+    // NOTE: replace ADMIN_ID with your Telegram numeric ID
+    const ADMIN_ID = env.ADMIN_ID;
+
+    if (text === "/admin" && String(userId) === String(ADMIN_ID)) {
+      await send(env, chatId, "🔐 Admin Panel", adminKeyboard());
+      return;
+    }
+
+    if (text === "/admin_users" && String(userId) === String(ADMIN_ID)) {
+      await L.adminUsers(env, chatId);
+      return;
+    }
+
+    if (text === "/admin_summary" && String(userId) === String(ADMIN_ID)) {
+      await L.adminSummary(env, chatId, userId);
+      return;
+    }
+
     /* ================= NUMBER INPUT ================= */
 
     if (/^\d+$/.test(text)) {
@@ -129,4 +148,4 @@ Build discipline. Let compounding do the rest 💎`,
   } catch (err) {
     console.error("BOT ERROR:", err);
   }
-      }
+        }

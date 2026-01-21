@@ -6,7 +6,10 @@ import {
   sumWithdrawals,
   setSession,
   getSession,
-  clearSession
+  clearSession,
+  setTempState,
+  getTempState,
+  clearTempState
 } from "./queries";
 
 const MAX_ATTEMPTS = 8;
@@ -46,15 +49,11 @@ function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-async function send(env, chatId, text, kb = null) {
+async function send(env, chatId, text) {
   await fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text,
-      reply_markup: kb || undefined
-    })
+    body: JSON.stringify({ chat_id: chatId, text })
   });
 }
 
@@ -78,7 +77,6 @@ ${pick(MOTIVATION)}`
 
 export async function stopAttempt(env, chatId, userId) {
   const session = await getSession(env, userId);
-
   if (!session) {
     await send(env, chatId, "⚠️ No active attempt found.");
     return;
@@ -88,18 +86,19 @@ export async function stopAttempt(env, chatId, userId) {
   const stop = Date.now();
 
   const diff = stop - start;
-  const minutes = Math.floor(diff / (1000 * 60));
-  const hr = Math.floor(minutes / 60);
-  const min = minutes % 60;
+  const mins = Math.floor(diff / 60000);
+  const hr = Math.floor(mins / 60);
+  const min = mins % 60;
 
   const total =
-    hr.toString().padStart(2, "0") +
-    ":" +
+    hr.toString().padStart(2, "0") + ":" +
     min.toString().padStart(2, "0");
 
   await clearSession(env, userId);
 
-  // 🔥 Motivation + Profit/Loss instruction (NO amount here)
+  // set waiting state for PROFIT / LOSS
+  await setTempState(env, userId, "WAIT_RESULT");
+
   await send(
     env,
     chatId,
@@ -114,43 +113,77 @@ ${pick(PRAISE)}
   );
 }
 
+/* ================= RESULT SELECTION ================= */
+
+export async function selectResult(env, chatId, userId, type) {
+  await setTempState(env, userId, type); // PROFIT or LOSS
+  await send(env, chatId, `✍️ Enter ${type === "LOSS" ? "loss" : "profit"} amount`);
+}
+
 /* ================= WITHDRAW ================= */
 
-export async function withdrawStart(env, chatId) {
+export async function withdrawStart(env, chatId, userId) {
+  await setTempState(env, userId, "WITHDRAW");
   await send(env, chatId, "✍️ Enter withdrawal amount");
 }
 
 /* ================= HANDLE NUMBER INPUT ================= */
 
-export async function handleAmount(env, chatId, userId, amount, type = "PROFIT") {
+export async function handleAmount(env, chatId, userId, amount) {
+  const state = await getTempState(env, userId);
   const date = today();
 
-  // PROFIT / LOSS handling
-  const signedAmount = type === "LOSS" ? -amount : amount;
+  // ----- WITHDRAW -----
+  if (state === "WITHDRAW") {
+    const balance =
+      (await sumEarnings(env, userId)) -
+      (await sumWithdrawals(env, userId));
 
-  const count = await getTodayAttemptCount(env, userId, date);
-  if (count >= MAX_ATTEMPTS) {
+    if (amount > balance) {
+      await send(env, chatId, "❌ Insufficient balance");
+      return;
+    }
+
+    await insertWithdrawal(env, userId, date, amount);
+    await clearTempState(env, userId);
+
     await send(
       env,
       chatId,
-      "⚠️ Daily limit reached\nMaximum 8 attempts per day 💪"
+      `💸 Withdraw Successful
+Amount: ₹${amount}
+Remaining Balance: ₹${balance - amount}`
     );
     return;
   }
 
-  await insertAttempt(env, userId, date, count + 1, signedAmount);
+  // ----- PROFIT / LOSS -----
+  if (state === "PROFIT" || state === "LOSS") {
+    const count = await getTodayAttemptCount(env, userId, date);
+    if (count >= MAX_ATTEMPTS) {
+      await send(env, chatId, "⚠️ Daily limit reached (8 attempts max)");
+      return;
+    }
 
-  await send(
-    env,
-    chatId,
-    `✅ Attempt #${count + 1} completed
-${type === "LOSS" ? "📉 Loss" : "📈 Profit"}: ₹${amount}
+    const signedAmount = state === "LOSS" ? -amount : amount;
+    await insertAttempt(env, userId, date, count + 1, signedAmount);
+    await clearTempState(env, userId);
+
+    await send(
+      env,
+      chatId,
+      `✅ Attempt #${count + 1} recorded
+${state === "LOSS" ? "📉 Loss" : "📈 Profit"}: ₹${amount}
 
 ${pick(PRAISE)}`
-  );
+    );
+    return;
+  }
+
+  await send(env, chatId, "⚠️ Unexpected input. Use buttons.");
 }
 
-/* ================= BALANCE / PROFILE ================= */
+/* ================= BALANCE ================= */
 
 export async function balance(env, chatId, userId) {
   const net = await sumEarnings(env, userId);
@@ -171,4 +204,4 @@ export async function balance(env, chatId, userId) {
 ━━━━━━━━━━━━
 💼 Balance: ₹${finalBalance}`
   );
-  }
+}

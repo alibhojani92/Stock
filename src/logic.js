@@ -68,11 +68,22 @@ async function send(env, chatId, text) {
 // Call this on /start or before first action
 export async function ensureBaseAmount(env, chatId, userId) {
   const base = await getBaseAmount(env, userId);
-  if (!base || base <= 0) {
+  const profit = await sumProfit(env, userId);
+  const loss = await sumLoss(env, userId);
+  const withdrawn = await sumWithdrawals(env, userId);
+
+  const balance = base + profit - loss - withdrawn;
+
+  if (!base || balance <= 0) {
     await setTempState(env, userId, "SET_BASE");
-    await send(env, chatId, "💰 Enter your base amount to start:");
+    await send(
+      env,
+      chatId,
+      "💰 Your balance is confirmed as ₹0\nEnter new base amount to continue:"
+    );
     return false;
   }
+
   return true;
 }
 

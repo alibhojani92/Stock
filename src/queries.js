@@ -89,3 +89,31 @@ export async function sumWithdrawals(env, userId, date = null) {
   const res = await stmt.first();
   return res?.total || 0;
                              }
+// start session
+export async function setSession(env, userId, startTime) {
+  const db = env.DB;
+  await db
+    .prepare(
+      "INSERT INTO attempt_session (user_id, start_time) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET start_time=?"
+    )
+    .bind(userId, startTime, startTime)
+    .run();
+}
+
+// get session
+export async function getSession(env, userId) {
+  const db = env.DB;
+  return await db
+    .prepare("SELECT start_time FROM attempt_session WHERE user_id=?")
+    .bind(userId)
+    .first();
+}
+
+// clear session
+export async function clearSession(env, userId) {
+  const db = env.DB;
+  await db
+    .prepare("DELETE FROM attempt_session WHERE user_id=?")
+    .bind(userId)
+    .run();
+}

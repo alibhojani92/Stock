@@ -96,7 +96,7 @@ export async function stopAttempt(env, chatId, userId) {
 
   await clearSession(env, userId);
 
-  // set waiting state for PROFIT / LOSS
+  // wait for PROFIT / LOSS selection
   await setTempState(env, userId, "WAIT_RESULT");
 
   await send(
@@ -117,7 +117,11 @@ ${pick(PRAISE)}
 
 export async function selectResult(env, chatId, userId, type) {
   await setTempState(env, userId, type); // PROFIT or LOSS
-  await send(env, chatId, `✍️ Enter ${type === "LOSS" ? "loss" : "profit"} amount`);
+  await send(
+    env,
+    chatId,
+    `✍️ Enter ${type === "LOSS" ? "loss" : "profit"} amount`
+  );
 }
 
 /* ================= WITHDRAW ================= */
@@ -133,11 +137,11 @@ export async function handleAmount(env, chatId, userId, amount) {
   const state = await getTempState(env, userId);
   const date = today();
 
-  // ----- WITHDRAW -----
+  /* ----- WITHDRAW FLOW ----- */
   if (state === "WITHDRAW") {
-    const balance =
-      (await sumEarnings(env, userId)) -
-      (await sumWithdrawals(env, userId));
+    const net = await sumEarnings(env, userId);
+    const withdrawn = await sumWithdrawals(env, userId);
+    const balance = net - withdrawn;
 
     if (amount > balance) {
       await send(env, chatId, "❌ Insufficient balance");
@@ -157,11 +161,15 @@ Remaining Balance: ₹${balance - amount}`
     return;
   }
 
-  // ----- PROFIT / LOSS -----
+  /* ----- PROFIT / LOSS FLOW ----- */
   if (state === "PROFIT" || state === "LOSS") {
     const count = await getTodayAttemptCount(env, userId, date);
     if (count >= MAX_ATTEMPTS) {
-      await send(env, chatId, "⚠️ Daily limit reached (8 attempts max)");
+      await send(
+        env,
+        chatId,
+        "⚠️ Daily limit reached (8 attempts max)"
+      );
       return;
     }
 
@@ -183,7 +191,7 @@ ${pick(PRAISE)}`
   await send(env, chatId, "⚠️ Unexpected input. Use buttons.");
 }
 
-/* ================= BALANCE ================= */
+/* ================= PROFILE / BALANCE ================= */
 
 export async function balance(env, chatId, userId) {
   const net = await sumEarnings(env, userId);
@@ -198,8 +206,8 @@ export async function balance(env, chatId, userId) {
     chatId,
     `👤 Profile Summary
 
-📈 Profit: ₹${profit}
-📉 Loss: ₹${loss}
+📈 Total Profit: ₹${profit}
+📉 Total Loss: ₹${loss}
 💸 Withdrawn: ₹${withdrawn}
 ━━━━━━━━━━━━
 💼 Balance: ₹${finalBalance}`

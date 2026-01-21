@@ -11,7 +11,11 @@ import {
   clearSession,
   setTempState,
   getTempState,
-  clearTempState
+  clearTempState,
+  getBaseAmount,
+  setBaseAmount,
+  getAllUsers,
+  getUserSummary
 } from "./queries";
 
 const MAX_ATTEMPTS = 8;
@@ -59,9 +63,24 @@ async function send(env, chatId, text) {
   });
 }
 
+/* ================= BASE AMOUNT ================= */
+
+// Call this on /start or before first action
+export async function ensureBaseAmount(env, chatId, userId) {
+  const base = await getBaseAmount(env, userId);
+  if (!base || base <= 0) {
+    await setTempState(env, userId, "SET_BASE");
+    await send(env, chatId, "💰 Enter your base amount to start:");
+    return false;
+  }
+  return true;
+}
+
 /* ================= START ATTEMPT ================= */
 
 export async function startAttempt(env, chatId, userId) {
+  if (!(await ensureBaseAmount(env, chatId, userId))) return;
+
   const start = Date.now();
   await setSession(env, userId, start);
 
@@ -127,6 +146,7 @@ export async function selectResult(env, chatId, userId, type) {
 /* ================= WITHDRAW ================= */
 
 export async function withdrawStart(env, chatId, userId) {
+  if (!(await ensureBaseAmount(env, chatId, userId))) return;
   await setTempState(env, userId, "WITHDRAW");
   await send(env, chatId, "✍️ Enter withdrawal amount");
 }
@@ -137,11 +157,21 @@ export async function handleAmount(env, chatId, userId, amount) {
   const state = await getTempState(env, userId);
   const date = today();
 
-  /* ----- WITHDRAW ----- */
+  // SET BASE
+  if (state === "SET_BASE") {
+    await setBaseAmount(env, userId, amount);
+    await clearTempState(env, userId);
+    await send(env, chatId, `✅ Base amount set: ₹${amount}\n🔥 Let’s start compounding!`);
+    return;
+  }
+
+  // WITHDRAW
   if (state === "WITHDRAW") {
-    const net = await sumEarnings(env, userId);
+    const base = await getBaseAmount(env, userId);
+    const profit = await sumProfit(env, userId);
+    const loss = await sumLoss(env, userId);
     const withdrawn = await sumWithdrawals(env, userId);
-    const balance = net - withdrawn;
+    const balance = base + profit - loss - withdrawn;
 
     if (amount > balance) {
       await send(env, chatId, "❌ Insufficient balance");
@@ -161,7 +191,7 @@ Remaining Balance: ₹${balance - amount}`
     return;
   }
 
-  /* ----- PROFIT / LOSS ----- */
+  // PROFIT / LOSS
   if (state === "PROFIT" || state === "LOSS") {
     const count = await getTodayAttemptCount(env, userId, date);
     if (count >= MAX_ATTEMPTS) {
@@ -190,17 +220,19 @@ ${pick(PRAISE)}`
 /* ================= PROFILE / BALANCE ================= */
 
 export async function balance(env, chatId, userId) {
+  const base = await getBaseAmount(env, userId);
   const profit = await sumProfit(env, userId);
   const loss = await sumLoss(env, userId);
   const withdrawn = await sumWithdrawals(env, userId);
 
-  const finalBalance = profit - loss - withdrawn;
+  const finalBalance = base + profit - loss - withdrawn;
 
   await send(
     env,
     chatId,
     `👤 Profile Summary
 
+💰 Base: ₹${base}
 📈 Total Profit: ₹${profit}
 📉 Total Loss: ₹${loss}
 💸 Withdrawn: ₹${withdrawn}
@@ -208,3 +240,28 @@ export async function balance(env, chatId, userId) {
 💼 Balance: ₹${finalBalance}`
   );
 }
+
+/* ================= ADMIN ================= */
+
+export async function adminUsers(env, chatId) {
+  const users = await getAllUsers(env);
+  let text = "👥 Users\n\n";
+  users.forEach(u => (text += `• ${u.user_id}\n`));
+  await send(env, chatId, text);
+}
+
+export async function adminSummary(env, chatId, userId) {
+  const s = await getUserSummary(env, userId);
+  await send(
+    env,
+    chatId,
+    `📊 User Summary
+
+💰 Base: ₹${s.base}
+📈 Profit: ₹${s.profit}
+📉 Loss: ₹${s.loss}
+💸 Withdrawn: ₹${s.withdrawn}
+━━━━━━━━━━━━
+💼 Balance: ₹${s.balance}`
+  );
+  }

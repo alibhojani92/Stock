@@ -1,3 +1,5 @@
+/* ================= MAIN USER KEYBOARD ================= */
+
 export function getKeyboard() {
   return {
     inline_keyboard: [
@@ -20,3 +22,29 @@ export function getKeyboard() {
     ]
   };
 }
+
+/* ================= PROFIT / LOSS KEYBOARD ================= */
+
+export function profitLossKeyboard() {
+  return {
+    inline_keyboard: [
+      [
+        { text: "🟢 Profit", callback_data: "RESULT_PROFIT" },
+        { text: "🔴 Loss", callback_data: "RESULT_LOSS" }
+      ]
+    ]
+  };
+}
+
+/* ================= ADMIN KEYBOARD ================= */
+
+export function adminKeyboard() {
+  return {
+    inline_keyboard: [
+      [
+        { text: "👥 Users", callback_data: "/admin_users" },
+        { text: "📊 Summary", callback_data: "/admin_summary" }
+      ]
+    ]
+  };
+    }

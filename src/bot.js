@@ -1,4 +1,9 @@
-import { getKeyboard, profitLossKeyboard, adminKeyboard } from "./keyboard";
+import {
+  replyKeyboard,
+  profitLossKeyboard,
+  reportInlineKeyboard,
+  adminKeyboard
+} from "./keyboard";
 import * as L from "./logic";
 import * as R from "./report";
 
@@ -19,7 +24,7 @@ export async function handleUpdate(update, env) {
     const msg = update.message;
     const cb = update.callback_query;
 
-    // ACK callback immediately
+    // ACK callback instantly
     if (cb?.id) {
       await fetch(
         `https://api.telegram.org/bot${env.BOT_TOKEN}/answerCallbackQuery`,
@@ -39,7 +44,7 @@ export async function handleUpdate(update, env) {
 
     if (!chatId || !userId || !text) return;
 
-    /* ================= CORE ================= */
+    /* ================= START / HELP ================= */
 
     if (text === "/start") {
       await send(
@@ -47,26 +52,32 @@ export async function handleUpdate(update, env) {
         chatId,
         `👋 Welcome, ${firstName}!
 
-🚀 Welcome to Compounding Tracking Bot 📈
-Build discipline. Let compounding do the rest 💎`,
-        getKeyboard()
+🚀 Compounding Tracking Bot 📈
+Discipline today → Wealth tomorrow 💎`,
+        replyKeyboard()
       );
       return;
     }
 
-    if (text === "/help") {
-      await send(env, chatId, "🆘 Use the buttons below.", getKeyboard());
+    if (text === "/help" || text === "🆘 Help") {
+      await send(
+        env,
+        chatId,
+        "🆘 Use the buttons below to control the bot.",
+        replyKeyboard()
+      );
       return;
     }
 
-    /* ================= ATTEMPTS ================= */
+    /* ================= REPLY KEYBOARD MAPPING ================= */
+    // Arrow keyboard sends plain text, map it to commands
 
-    if (text === "/start_attempt") {
+    if (text === "▶️ Start Attempt") {
       await L.startAttempt(env, chatId, userId);
       return;
     }
 
-    if (text === "/stop_attempt") {
+    if (text === "⏹ Stop Attempt") {
       await L.stopAttempt(env, chatId, userId);
       await send(
         env,
@@ -77,7 +88,27 @@ Build discipline. Let compounding do the rest 💎`,
       return;
     }
 
-    /* ================= PROFIT / LOSS ================= */
+    if (text === "💰 Balance") {
+      await L.balance(env, chatId, userId);
+      return;
+    }
+
+    if (text === "💸 Withdraw") {
+      await L.withdrawStart(env, chatId, userId);
+      return;
+    }
+
+    if (text === "📊 Reports") {
+      await send(
+        env,
+        chatId,
+        "📊 Select report type:",
+        reportInlineKeyboard()
+      );
+      return;
+    }
+
+    /* ================= INLINE CALLBACKS ================= */
 
     if (text === "RESULT_PROFIT") {
       await L.selectResult(env, chatId, userId, "PROFIT");
@@ -88,20 +119,6 @@ Build discipline. Let compounding do the rest 💎`,
       await L.selectResult(env, chatId, userId, "LOSS");
       return;
     }
-
-    /* ================= WALLET ================= */
-
-    if (text === "/withdraw") {
-      await L.withdrawStart(env, chatId, userId);
-      return;
-    }
-
-    if (text === "/balance") {
-      await L.balance(env, chatId, userId);
-      return;
-    }
-
-    /* ================= REPORTS ================= */
 
     if (text === "/today") {
       await R.todayReport(env, chatId, userId);
@@ -119,7 +136,7 @@ Build discipline. Let compounding do the rest 💎`,
     }
 
     /* ================= ADMIN ================= */
-    // NOTE: replace ADMIN_ID with your Telegram numeric ID
+
     const ADMIN_ID = env.ADMIN_ID;
 
     if (text === "/admin" && String(userId) === String(ADMIN_ID)) {
@@ -144,8 +161,8 @@ Build discipline. Let compounding do the rest 💎`,
       return;
     }
 
-    await send(env, chatId, "❓ Unknown command. Use /help");
+    await send(env, chatId, "❓ Unknown input. Use the buttons below.", replyKeyboard());
   } catch (err) {
     console.error("BOT ERROR:", err);
   }
-        }
+                            }

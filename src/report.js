@@ -1,13 +1,12 @@
 import {
-  sumEarnings,
-  sumWithdrawals,
-  earningsByDate
+  earningsByDate,
+  sumWithdrawals
 } from "./queries";
 
 /* ---------------- HELPERS ---------------- */
 
 function today() {
-  return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  return new Date().toISOString().slice(0, 10);
 }
 
 function daysAgo(days) {
@@ -16,31 +15,45 @@ function daysAgo(days) {
   return d.toISOString().slice(0, 10);
 }
 
+function splitProfitLoss(rows) {
+  let profit = 0;
+  let loss = 0;
+
+  for (const r of rows) {
+    if (r.total > 0) profit += r.total;
+    if (r.total < 0) loss += Math.abs(r.total);
+  }
+
+  return { profit, loss };
+}
+
 /* ---------------- TODAY REPORT ---------------- */
 
 export async function todayReport(env, chatId, userId) {
   const date = today();
-
-  const earned = await sumEarnings(env, userId, date);
+  const rows = await earningsByDate(env, userId, date);
   const withdrawn = await sumWithdrawals(env, userId, date);
-  const balance = earned - withdrawn;
+
+  const { profit, loss } = splitProfitLoss(rows);
+  const net = profit - loss - withdrawn;
 
   return send(
     env,
     chatId,
     `📅 Today Report (${date})
 
-💰 Earned Today: ₹${earned}
-💸 Withdrawn Today: ₹${withdrawn}
+📈 Profit: ₹${profit}
+📉 Loss: ₹${loss}
+💸 Withdrawn: ₹${withdrawn}
 ━━━━━━━━━━━━━━
-✅ Balance Today: ₹${balance}`
+💼 Net Balance: ₹${net}`
   );
 }
 
 /* ---------------- WEEKLY REPORT ---------------- */
 
 export async function weeklyReport(env, chatId, userId) {
-  const fromDate = daysAgo(6); // last 7 days including today
+  const fromDate = daysAgo(6);
   const rows = await earningsByDate(env, userId, fromDate);
 
   if (!rows.length) {
@@ -48,14 +61,30 @@ export async function weeklyReport(env, chatId, userId) {
   }
 
   let text = "📆 Weekly Report\n\n";
-  let total = 0;
+  let grouped = {};
 
   for (const r of rows) {
-    text += `${r.date} → ₹${r.total}\n`;
-    total += r.total;
+    if (!grouped[r.date]) grouped[r.date] = [];
+    grouped[r.date].push(r);
   }
 
-  text += `\n💰 Total: ₹${total}`;
+  let totalProfit = 0;
+  let totalLoss = 0;
+
+  for (const date in grouped) {
+    const { profit, loss } = splitProfitLoss(grouped[date]);
+    totalProfit += profit;
+    totalLoss += loss;
+
+    text += `📅 ${date}\n`;
+    text += `  📈 Profit: ₹${profit}\n`;
+    text += `  📉 Loss: ₹${loss}\n\n`;
+  }
+
+  text += `━━━━━━━━━━━━━━\n`;
+  text += `📈 Total Profit: ₹${totalProfit}\n`;
+  text += `📉 Total Loss: ₹${totalLoss}\n`;
+  text += `💼 Net: ₹${totalProfit - totalLoss}`;
 
   return send(env, chatId, text);
 }
@@ -63,19 +92,26 @@ export async function weeklyReport(env, chatId, userId) {
 /* ---------------- MONTHLY REPORT ---------------- */
 
 export async function monthlyReport(env, chatId, userId) {
-  const fromDate = daysAgo(29); // last 30 days
+  const fromDate = daysAgo(29);
   const rows = await earningsByDate(env, userId, fromDate);
 
   if (!rows.length) {
     return send(env, chatId, "🗓 Monthly Report\n\nNo data available.");
   }
 
-  let total = 0;
-  let days = new Set();
-
+  let grouped = {};
   for (const r of rows) {
-    total += r.total;
-    days.add(r.date);
+    if (!grouped[r.date]) grouped[r.date] = [];
+    grouped[r.date].push(r);
+  }
+
+  let totalProfit = 0;
+  let totalLoss = 0;
+
+  for (const date in grouped) {
+    const { profit, loss } = splitProfitLoss(grouped[date]);
+    totalProfit += profit;
+    totalLoss += loss;
   }
 
   return send(
@@ -83,8 +119,11 @@ export async function monthlyReport(env, chatId, userId) {
     chatId,
     `🗓 Monthly Report
 
-📅 Active Days: ${days.size}
-💰 Total Earned: ₹${total}`
+📅 Active Days: ${Object.keys(grouped).length}
+📈 Total Profit: ₹${totalProfit}
+📉 Total Loss: ₹${totalLoss}
+━━━━━━━━━━━━━━
+💼 Net Balance: ₹${totalProfit - totalLoss}`
   );
 }
 
@@ -94,11 +133,6 @@ async function send(env, chatId, text) {
   await fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text
-    })
+    body: JSON.stringify({ chat_id: chatId, text })
   });
-
-  return new Response("OK");
 }

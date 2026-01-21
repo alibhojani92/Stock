@@ -2,6 +2,8 @@ import {
   getTodayAttemptCount,
   insertAttempt,
   sumEarnings,
+  sumProfit,
+  sumLoss,
   insertWithdrawal,
   sumWithdrawals,
   setSession,
@@ -95,8 +97,6 @@ export async function stopAttempt(env, chatId, userId) {
     min.toString().padStart(2, "0");
 
   await clearSession(env, userId);
-
-  // wait for PROFIT / LOSS selection
   await setTempState(env, userId, "WAIT_RESULT");
 
   await send(
@@ -116,7 +116,7 @@ ${pick(PRAISE)}
 /* ================= RESULT SELECTION ================= */
 
 export async function selectResult(env, chatId, userId, type) {
-  await setTempState(env, userId, type); // PROFIT or LOSS
+  await setTempState(env, userId, type); // PROFIT / LOSS
   await send(
     env,
     chatId,
@@ -137,7 +137,7 @@ export async function handleAmount(env, chatId, userId, amount) {
   const state = await getTempState(env, userId);
   const date = today();
 
-  /* ----- WITHDRAW FLOW ----- */
+  /* ----- WITHDRAW ----- */
   if (state === "WITHDRAW") {
     const net = await sumEarnings(env, userId);
     const withdrawn = await sumWithdrawals(env, userId);
@@ -161,15 +161,11 @@ Remaining Balance: ₹${balance - amount}`
     return;
   }
 
-  /* ----- PROFIT / LOSS FLOW ----- */
+  /* ----- PROFIT / LOSS ----- */
   if (state === "PROFIT" || state === "LOSS") {
     const count = await getTodayAttemptCount(env, userId, date);
     if (count >= MAX_ATTEMPTS) {
-      await send(
-        env,
-        chatId,
-        "⚠️ Daily limit reached (8 attempts max)"
-      );
+      await send(env, chatId, "⚠️ Daily limit reached (8 attempts max)");
       return;
     }
 
@@ -194,12 +190,11 @@ ${pick(PRAISE)}`
 /* ================= PROFILE / BALANCE ================= */
 
 export async function balance(env, chatId, userId) {
-  const net = await sumEarnings(env, userId);
+  const profit = await sumProfit(env, userId);
+  const loss = await sumLoss(env, userId);
   const withdrawn = await sumWithdrawals(env, userId);
 
-  const profit = net > 0 ? net : 0;
-  const loss = net < 0 ? Math.abs(net) : 0;
-  const finalBalance = net - withdrawn;
+  const finalBalance = profit - loss - withdrawn;
 
   await send(
     env,

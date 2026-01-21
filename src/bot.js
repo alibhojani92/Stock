@@ -1,4 +1,4 @@
-import { getKeyboard } from "./keyboard";
+import { getKeyboard, profitLossKeyboard } from "./keyboard";
 import * as L from "./logic";
 import * as R from "./report";
 
@@ -34,11 +34,13 @@ export async function handleUpdate(update, env) {
     const chatId = msg?.chat?.id || cb?.message?.chat?.id;
     const userId = msg?.from?.id || cb?.from?.id;
     const text = msg?.text || cb?.data;
-    const firstName = msg?.from?.first_name || cb?.from?.first_name || "Friend";
+    const firstName =
+      msg?.from?.first_name || cb?.from?.first_name || "Friend";
 
     if (!chatId || !userId || !text) return;
 
-    // ---- CORE ----
+    /* ================= CORE ================= */
+
     if (text === "/start") {
       await send(
         env,
@@ -57,7 +59,8 @@ Build discipline. Let compounding do the rest 💎`,
       return;
     }
 
-    // ---- ACTIONS ----
+    /* ================= ATTEMPTS ================= */
+
     if (text === "/start_attempt") {
       await L.startAttempt(env, chatId, userId);
       return;
@@ -65,8 +68,30 @@ Build discipline. Let compounding do the rest 💎`,
 
     if (text === "/stop_attempt") {
       await L.stopAttempt(env, chatId, userId);
+
+      // ✅ FIX: show PROFIT / LOSS buttons
+      await send(
+        env,
+        chatId,
+        "🟢 Select PROFIT or 🔴 LOSS",
+        profitLossKeyboard()
+      );
       return;
     }
+
+    /* ================= PROFIT / LOSS BUTTON ================= */
+
+    if (text === "RESULT_PROFIT") {
+      await L.selectResult(env, chatId, userId, "PROFIT");
+      return;
+    }
+
+    if (text === "RESULT_LOSS") {
+      await L.selectResult(env, chatId, userId, "LOSS");
+      return;
+    }
+
+    /* ================= WALLET ================= */
 
     if (text === "/withdraw") {
       await L.withdrawStart(env, chatId, userId);
@@ -77,6 +102,8 @@ Build discipline. Let compounding do the rest 💎`,
       await L.balance(env, chatId, userId);
       return;
     }
+
+    /* ================= REPORTS ================= */
 
     if (text === "/today") {
       await R.todayReport(env, chatId, userId);
@@ -93,7 +120,8 @@ Build discipline. Let compounding do the rest 💎`,
       return;
     }
 
-    // ---- NUMBER INPUT LAST ----
+    /* ================= NUMBER INPUT (LAST) ================= */
+
     if (/^\d+$/.test(text)) {
       await L.handleAmount(env, chatId, userId, Number(text));
       return;
@@ -103,4 +131,4 @@ Build discipline. Let compounding do the rest 💎`,
   } catch (err) {
     console.error("BOT ERROR:", err);
   }
-    }
+}

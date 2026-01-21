@@ -17,7 +17,6 @@ function today() {
   return new Date().toISOString().slice(0, 10);
 }
 
-// IST time WITHOUT seconds
 function formatIST(time) {
   return new Date(time).toLocaleTimeString("en-IN", {
     timeZone: "Asia/Kolkata",
@@ -28,34 +27,34 @@ function formatIST(time) {
 }
 
 const MOTIVATION = [
-  "🔥 Great start! Consistency beats motivation every time 💪",
-  "📈 Small progress daily creates massive results!",
-  "🚀 You showed up today, that’s what matters!",
-  "💎 Discipline today = Freedom tomorrow",
-  "🧠 Compounding is silent but powerful, keep going!",
-  "👏 One attempt closer to your big goal!",
-  "⚡ Focus. Execute. Repeat.",
-  "🌱 Small actions daily grow into big success"
+  "🔥 Consistency today = freedom tomorrow",
+  "💎 Discipline is the real compounding",
+  "🚀 You showed up — that’s power",
+  "📈 Small steps daily, big future",
+  "💪 Stay focused, stay consistent"
 ];
 
 const PRAISE = [
-  "👏 Well done! Another brick added to your future 🧱",
-  "🔥 Excellent! Keep the streak alive!",
-  "💰 Income grows when discipline stays!",
-  "🚀 Proud of you! Most people quit early, you didn’t.",
-  "📊 This is how compounding works — step by step!",
-  "💪 Strong work! Stay consistent."
+  "👏 Well done! Keep compounding",
+  "🔥 Strong discipline!",
+  "🚀 Proud of your consistency",
+  "📊 This is how growth works",
+  "💪 One step closer to your goal"
 ];
 
 function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-async function send(env, chatId, text) {
+async function send(env, chatId, text, kb = null) {
   await fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text })
+    body: JSON.stringify({
+      chat_id: chatId,
+      text,
+      reply_markup: kb || undefined
+    })
   });
 }
 
@@ -100,20 +99,19 @@ export async function stopAttempt(env, chatId, userId) {
 
   await clearSession(env, userId);
 
+  // 🔥 Motivation + Profit/Loss instruction (NO amount here)
   await send(
     env,
     chatId,
     `⏹ Attempt Stopped
 Start Time: ${formatIST(start)}
 Stop Time: ${formatIST(stop)}
-⏳ Total Time: ${total}`
+⏳ Total Time: ${total}
+
+${pick(PRAISE)}
+
+🟢 Select PROFIT or 🔴 LOSS from buttons below`
   );
-
-  // motivation after stop
-  await send(env, chatId, pick(PRAISE));
-
-  // ask amount
-  await send(env, chatId, "✍️ Enter earned amount");
 }
 
 /* ================= WITHDRAW ================= */
@@ -124,26 +122,12 @@ export async function withdrawStart(env, chatId) {
 
 /* ================= HANDLE NUMBER INPUT ================= */
 
-export async function handleAmount(env, chatId, userId, amount) {
+export async function handleAmount(env, chatId, userId, amount, type = "PROFIT") {
   const date = today();
 
-  const earned = await sumEarnings(env, userId);
-  const withdrawn = await sumWithdrawals(env, userId);
-  const balance = earned - withdrawn;
+  // PROFIT / LOSS handling
+  const signedAmount = type === "LOSS" ? -amount : amount;
 
-  // withdrawal
-  if (amount <= balance) {
-    await insertWithdrawal(env, userId, date, amount);
-    await send(
-      env,
-      chatId,
-      `💸 Withdrawn ₹${amount}
-Balance ₹${balance - amount}`
-    );
-    return;
-  }
-
-  // earning (daily limit check)
   const count = await getTodayAttemptCount(env, userId, date);
   if (count >= MAX_ATTEMPTS) {
     await send(
@@ -154,31 +138,37 @@ Balance ₹${balance - amount}`
     return;
   }
 
-  await insertAttempt(env, userId, date, count + 1, amount);
+  await insertAttempt(env, userId, date, count + 1, signedAmount);
 
   await send(
     env,
     chatId,
     `✅ Attempt #${count + 1} completed
-💰 Earned ₹${amount}
+${type === "LOSS" ? "📉 Loss" : "📈 Profit"}: ₹${amount}
 
 ${pick(PRAISE)}`
   );
 }
 
-/* ================= BALANCE ================= */
+/* ================= BALANCE / PROFILE ================= */
 
 export async function balance(env, chatId, userId) {
-  const earned = await sumEarnings(env, userId);
+  const net = await sumEarnings(env, userId);
   const withdrawn = await sumWithdrawals(env, userId);
+
+  const profit = net > 0 ? net : 0;
+  const loss = net < 0 ? Math.abs(net) : 0;
+  const finalBalance = net - withdrawn;
 
   await send(
     env,
     chatId,
-    `💼 Wallet
-Earned ₹${earned}
-Withdrawn ₹${withdrawn}
-━━━━━━━━━━
-₹${earned - withdrawn}`
+    `👤 Profile Summary
+
+📈 Profit: ₹${profit}
+📉 Loss: ₹${loss}
+💸 Withdrawn: ₹${withdrawn}
+━━━━━━━━━━━━
+💼 Balance: ₹${finalBalance}`
   );
-}
+  }

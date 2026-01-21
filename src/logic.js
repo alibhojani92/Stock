@@ -78,7 +78,7 @@ export async function startAttempt(env, chatId, userId) {
   const start = Date.now();
   await setSession(env, userId, start);
 
-  const time = new Date(start).toLocaleTimeString();
+  const time = formatIST(start);
   await send(env, chatId, `⏱ Attempt Started\nStart Time: ${time}`);
     }
 import { getSession, clearSession } from "./queries";
@@ -111,8 +111,8 @@ export async function stopAttempt(env, chatId, userId) {
     env,
     chatId,
     `⏹ Attempt Stopped
-Start Time: ${new Date(start).toLocaleTimeString()}
-Stop Time: ${new Date(stop).toLocaleTimeString()}
+Start Time: ${formatIST(start)}
+Stop Time: ${formatIST(stop)}
 ⏳ Total Time: ${total}`
   );
 

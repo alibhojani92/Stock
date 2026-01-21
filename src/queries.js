@@ -1,6 +1,6 @@
 import { getDB } from "./db";
 
-/* ---------------- ATTEMPTS ---------------- */
+/* ================= ATTEMPTS ================= */
 
 // Count today's attempts
 export async function getTodayAttemptCount(env, userId, date) {
@@ -15,7 +15,7 @@ export async function getTodayAttemptCount(env, userId, date) {
   return res?.count || 0;
 }
 
-// Insert new attempt
+// Insert new attempt (amount can be +profit or -loss)
 export async function insertAttempt(env, userId, date, attemptNo, amount) {
   const db = getDB(env);
   await db
@@ -27,7 +27,7 @@ export async function insertAttempt(env, userId, date, attemptNo, amount) {
     .run();
 }
 
-// Sum earnings (optionally by date)
+// Sum earnings (profit - loss combined)
 export async function sumEarnings(env, userId, date = null) {
   const db = getDB(env);
 
@@ -43,7 +43,7 @@ export async function sumEarnings(env, userId, date = null) {
   return res?.total || 0;
 }
 
-// Earnings grouped by date (for weekly/monthly)
+// Earnings grouped by date (weekly/monthly)
 export async function earningsByDate(env, userId, fromDate) {
   const db = getDB(env);
   const res = await db
@@ -60,9 +60,34 @@ export async function earningsByDate(env, userId, fromDate) {
   return res?.results || [];
 }
 
-/* ---------------- WITHDRAWALS ---------------- */
+/* ================= BASE AMOUNT ================= */
 
-// Insert withdrawal
+// Set base amount (only once or when balance = 0)
+export async function setBaseAmount(env, userId, amount) {
+  const db = getDB(env);
+  await db
+    .prepare(
+      `INSERT INTO base_amounts (user_id, amount)
+       VALUES (?, ?)
+       ON CONFLICT(user_id) DO UPDATE SET amount = ?`
+    )
+    .bind(userId, amount, amount)
+    .run();
+}
+
+// Get base amount
+export async function getBaseAmount(env, userId) {
+  const db = getDB(env);
+  const res = await db
+    .prepare("SELECT amount FROM base_amounts WHERE user_id = ?")
+    .bind(userId)
+    .first();
+
+  return res?.amount || 0;
+}
+
+/* ================= WITHDRAWALS ================= */
+
 export async function insertWithdrawal(env, userId, date, amount) {
   const db = getDB(env);
   await db
@@ -74,7 +99,6 @@ export async function insertWithdrawal(env, userId, date, amount) {
     .run();
 }
 
-// Sum withdrawals (optionally by date)
 export async function sumWithdrawals(env, userId, date = null) {
   const db = getDB(env);
 
@@ -88,19 +112,21 @@ export async function sumWithdrawals(env, userId, date = null) {
 
   const res = await stmt.first();
   return res?.total || 0;
-                             }
-// start session
+}
+
+/* ================= ATTEMPT SESSION (TIME) ================= */
+
 export async function setSession(env, userId, startTime) {
   const db = env.DB;
   await db
     .prepare(
-      "INSERT INTO attempt_session (user_id, start_time) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET start_time=?"
+      "INSERT INTO attempt_session (user_id, start_time) VALUES (?, ?) " +
+      "ON CONFLICT(user_id) DO UPDATE SET start_time=?"
     )
     .bind(userId, startTime, startTime)
     .run();
 }
 
-// get session
 export async function getSession(env, userId) {
   const db = env.DB;
   return await db
@@ -109,7 +135,6 @@ export async function getSession(env, userId) {
     .first();
 }
 
-// clear session
 export async function clearSession(env, userId) {
   const db = env.DB;
   await db
@@ -117,3 +142,30 @@ export async function clearSession(env, userId) {
     .bind(userId)
     .run();
 }
+
+/* ================= ADMIN ================= */
+
+// All users
+export async function getAllUsers(env) {
+  const db = getDB(env);
+  const res = await db
+    .prepare("SELECT DISTINCT user_id FROM attempts")
+    .all();
+  return res?.results || [];
+}
+
+// Per-user summary
+export async function getUserSummary(env, userId) {
+  const db = getDB(env);
+
+  const [base, profit] = await Promise.all([
+    getBaseAmount(env, userId),
+    sumEarnings(env, userId)
+  ]);
+
+  return {
+    base,
+    profit,
+    balance: base + profit
+  };
+    }

@@ -20,6 +20,29 @@ function formatIST(time) {
     hour12: true
   });
 }
+const MOTIVATION = [
+  "🔥 Great start! Consistency beats motivation every time 💪",
+  "📈 Small progress daily creates massive results!",
+  "🚀 You showed up today, that’s what matters!",
+  "💎 Discipline today = Freedom tomorrow",
+  "🧠 Compounding is silent but powerful, keep going!",
+  "👏 One attempt closer to your big goal!",
+  "⚡ Focus. Execute. Repeat.",
+  "🌱 Small actions daily grow into big success"
+];
+
+const PRAISE = [
+  "👏 Well done! Another brick added to your future 🧱",
+  "🔥 Excellent! Keep the streak alive!",
+  "💰 Income grows when discipline stays!",
+  "🚀 Proud of you! Most people quit early, you didn’t.",
+  "📊 This is how compounding works — step by step!",
+  "💪 Strong work! Stay consistent."
+];
+
+function pick(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
 async function send(env, chatId, text) {
   await fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/sendMessage`, {
     method: "POST",

@@ -1,7 +1,6 @@
 import {
   getTodayAttemptCount,
   insertAttempt,
-  sumEarnings,
   sumProfit,
   sumLoss,
   insertWithdrawal,
@@ -65,7 +64,6 @@ async function send(env, chatId, text) {
 
 /* ================= BASE AMOUNT ================= */
 
-// Call this on /start or before first action
 export async function ensureBaseAmount(env, chatId, userId) {
   const base = await getBaseAmount(env, userId);
   const profit = await sumProfit(env, userId);
@@ -79,11 +77,10 @@ export async function ensureBaseAmount(env, chatId, userId) {
     await send(
       env,
       chatId,
-      "💰 Your balance is confirmed as ₹0\nEnter new base amount to continue:"
+      "💰 Your balance is ₹0\nEnter new base amount to continue:"
     );
     return false;
   }
-
   return true;
 }
 
@@ -91,6 +88,17 @@ export async function ensureBaseAmount(env, chatId, userId) {
 
 export async function startAttempt(env, chatId, userId) {
   if (!(await ensureBaseAmount(env, chatId, userId))) return;
+
+  // ✅ DUPLICATE ATTEMPT DETECTION
+  const active = await getSession(env, userId);
+  if (active) {
+    await send(
+      env,
+      chatId,
+      "⚠️ An attempt is already running.\nStop it before starting a new one."
+    );
+    return;
+  }
 
   const start = Date.now();
   await setSession(env, userId, start);
@@ -123,7 +131,8 @@ export async function stopAttempt(env, chatId, userId) {
   const min = mins % 60;
 
   const total =
-    hr.toString().padStart(2, "0") + ":" +
+    hr.toString().padStart(2, "0") +
+    ":" +
     min.toString().padStart(2, "0");
 
   await clearSession(env, userId);
@@ -168,15 +177,19 @@ export async function handleAmount(env, chatId, userId, amount) {
   const state = await getTempState(env, userId);
   const date = today();
 
-  // SET BASE
+  /* ----- SET BASE (FIXED LOOP BUG) ----- */
   if (state === "SET_BASE") {
     await setBaseAmount(env, userId, amount);
-    await clearTempState(env, userId);
-    await send(env, chatId, `✅ Base amount set: ₹${amount}\n🔥 Let’s start compounding!`);
+    await clearTempState(env, userId); // ✅ VERY IMPORTANT
+    await send(
+      env,
+      chatId,
+      `✅ Base amount set to ₹${amount}\n🚀 You can start a new attempt now`
+    );
     return;
   }
 
-  // WITHDRAW
+  /* ----- WITHDRAW ----- */
   if (state === "WITHDRAW") {
     const base = await getBaseAmount(env, userId);
     const profit = await sumProfit(env, userId);
@@ -202,7 +215,7 @@ Remaining Balance: ₹${balance - amount}`
     return;
   }
 
-  // PROFIT / LOSS
+  /* ----- PROFIT / LOSS ----- */
   if (state === "PROFIT" || state === "LOSS") {
     const count = await getTodayAttemptCount(env, userId, date);
     if (count >= MAX_ATTEMPTS) {
@@ -275,4 +288,4 @@ export async function adminSummary(env, chatId, userId) {
 ━━━━━━━━━━━━
 💼 Balance: ₹${s.balance}`
   );
-  }
+}

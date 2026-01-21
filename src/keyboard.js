@@ -1,30 +1,22 @@
-/* ================= MAIN USER KEYBOARD ================= */
+/* ================= REPLY (ARROW) KEYBOARD ================= */
+/* Main navigation – always visible */
 
-export function getKeyboard() {
+export function replyKeyboard() {
   return {
-    inline_keyboard: [
-      [
-        { text: "▶️ Start Attempt", callback_data: "/start_attempt" },
-        { text: "⏹ Stop Attempt", callback_data: "/stop_attempt" }
-      ],
-      [
-        { text: "💸 Withdraw", callback_data: "/withdraw" },
-        { text: "💰 Balance", callback_data: "/balance" }
-      ],
-      [
-        { text: "📊 Today", callback_data: "/today" },
-        { text: "📆 Weekly", callback_data: "/weekly" }
-      ],
-      [
-        { text: "🗓 Monthly", callback_data: "/monthly" },
-        { text: "🆘 Help", callback_data: "/help" }
-      ]
-    ]
+    keyboard: [
+      ["▶️ Start Attempt", "⏹ Stop Attempt"],
+      ["💰 Balance", "💸 Withdraw"],
+      ["📊 Reports", "🆘 Help"]
+    ],
+    resize_keyboard: true,
+    one_time_keyboard: false
   };
 }
 
-/* ================= PROFIT / LOSS KEYBOARD ================= */
+/* ================= INLINE KEYBOARDS ================= */
+/* State / decision based */
 
+/* Profit / Loss (after stop attempt) */
 export function profitLossKeyboard() {
   return {
     inline_keyboard: [
@@ -36,8 +28,22 @@ export function profitLossKeyboard() {
   };
 }
 
-/* ================= ADMIN KEYBOARD ================= */
+/* Reports inline selector */
+export function reportInlineKeyboard() {
+  return {
+    inline_keyboard: [
+      [
+        { text: "📅 Today", callback_data: "/today" },
+        { text: "📆 Weekly", callback_data: "/weekly" }
+      ],
+      [
+        { text: "🗓 Monthly", callback_data: "/monthly" }
+      ]
+    ]
+  };
+}
 
+/* Admin inline keyboard */
 export function adminKeyboard() {
   return {
     inline_keyboard: [
@@ -47,4 +53,4 @@ export function adminKeyboard() {
       ]
     ]
   };
-      }
+          }

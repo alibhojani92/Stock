@@ -88,3 +88,34 @@ export async function startAttempt(env, chatId, userId) {
   const time = new Date(start).toLocaleTimeString();
   await send(env, chatId, `⏱ Attempt Started\nStart Time: ${time}`);
     }
+import { getSession, clearSession } from "./queries";
+
+export async function stopAttempt(env, chatId, userId) {
+  const session = await getSession(env, userId);
+  if (!session) {
+    await send(env, chatId, "⚠️ No active attempt found.");
+    return;
+  }
+
+  const start = session.start_time;
+  const stop = Date.now();
+
+  const durationMs = stop - start;
+  const sec = Math.floor(durationMs / 1000) % 60;
+  const min = Math.floor(durationMs / (1000 * 60)) % 60;
+  const hr = Math.floor(durationMs / (1000 * 60 * 60));
+
+  const total = `${hr.toString().padStart(2,"0")}:${min
+    .toString().padStart(2,"0")}:${sec.toString().padStart(2,"0")}`;
+
+  await clearSession(env, userId);
+
+  await send(
+    env,
+    chatId,
+    `⏹ Attempt Stopped
+Start Time: ${new Date(start).toLocaleTimeString()}
+Stop Time: ${new Date(stop).toLocaleTimeString()}
+⏳ Total Time: ${total}`
+  );
+      }

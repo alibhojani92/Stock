@@ -304,7 +304,7 @@ export async function confirmReset(env, chatId, userId) {
   const db = env.DB;
   await db.prepare("DELETE FROM base_amounts WHERE user_id=?").bind(userId).run();
   await db.prepare("DELETE FROM base_history WHERE user_id=?").bind(userId).run();
-  await clearTempState(env, userId);
+  await setTempState(env, userId, "SET_BASE");
 
   await fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/sendMessage`, {
     method: "POST",

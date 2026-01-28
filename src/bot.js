@@ -69,8 +69,7 @@ Discipline today → Wealth tomorrow 💎`,
       return;
     }
 
-    /* ================= REPLY KEYBOARD MAPPING ================= */
-    // Arrow keyboard sends plain text, map it to commands
+    /* ================= REPLY KEYBOARD ================= */
 
     if (text === "▶️ Start Attempt") {
       await L.startAttempt(env, chatId, userId);
@@ -79,12 +78,6 @@ Discipline today → Wealth tomorrow 💎`,
 
     if (text === "⏹ Stop Attempt") {
       await L.stopAttempt(env, chatId, userId);
-      await send(
-        env,
-        chatId,
-        "🟢 Select PROFIT or 🔴 LOSS",
-        profitLossKeyboard()
-      );
       return;
     }
 
@@ -161,8 +154,13 @@ Discipline today → Wealth tomorrow 💎`,
       return;
     }
 
-    await send(env, chatId, "❓ Unknown input. Use the buttons below.", replyKeyboard());
+    await send(
+      env,
+      chatId,
+      "❓ Unknown input. Use the buttons below.",
+      replyKeyboard()
+    );
   } catch (err) {
     console.error("BOT ERROR:", err);
   }
-                            }
+  }

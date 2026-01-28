@@ -24,59 +24,54 @@ export async function insertAttempt(env, userId, date, attemptNo, amount) {
     .run();
 }
 
-/* ================= PROFIT / LOSS QUERIES ================= */
+/* ================= PROFIT / LOSS ================= */
 
-// net (profit - loss)
 export async function sumEarnings(env, userId, date = null) {
   const db = getDB(env);
   const query = date
     ? "SELECT SUM(amount) as total FROM attempts WHERE user_id = ? AND date = ?"
     : "SELECT SUM(amount) as total FROM attempts WHERE user_id = ?";
 
-  const stmt = date
-    ? db.prepare(query).bind(userId, date)
-    : db.prepare(query).bind(userId);
+  const res = date
+    ? await db.prepare(query).bind(userId, date).first()
+    : await db.prepare(query).bind(userId).first();
 
-  const res = await stmt.first();
   return res?.total || 0;
 }
 
-// profit only
 export async function sumProfit(env, userId, date = null) {
   const db = getDB(env);
   const query = date
     ? "SELECT SUM(amount) as total FROM attempts WHERE user_id = ? AND amount > 0 AND date = ?"
     : "SELECT SUM(amount) as total FROM attempts WHERE user_id = ? AND amount > 0";
 
-  const stmt = date
-    ? db.prepare(query).bind(userId, date)
-    : db.prepare(query).bind(userId);
+  const res = date
+    ? await db.prepare(query).bind(userId, date).first()
+    : await db.prepare(query).bind(userId).first();
 
-  const res = await stmt.first();
   return res?.total || 0;
 }
 
-// loss only (absolute)
 export async function sumLoss(env, userId, date = null) {
   const db = getDB(env);
   const query = date
     ? "SELECT SUM(ABS(amount)) as total FROM attempts WHERE user_id = ? AND amount < 0 AND date = ?"
     : "SELECT SUM(ABS(amount)) as total FROM attempts WHERE user_id = ? AND amount < 0";
 
-  const stmt = date
-    ? db.prepare(query).bind(userId, date)
-    : db.prepare(query).bind(userId);
+  const res = date
+    ? await db.prepare(query).bind(userId, date).first()
+    : await db.prepare(query).bind(userId).first();
 
-  const res = await stmt.first();
   return res?.total || 0;
 }
 
-// date-wise
 export async function earningsByDate(env, userId, fromDate) {
   const db = getDB(env);
   const res = await db
     .prepare(
-      `SELECT date, SUM(amount) as total
+      `SELECT date,
+              SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END) as profit,
+              SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END) as loss
        FROM attempts
        WHERE user_id = ? AND date >= ?
        GROUP BY date
@@ -91,7 +86,6 @@ export async function earningsByDate(env, userId, fromDate) {
 
 export async function setBaseAmount(env, userId, amount) {
   const db = getDB(env);
-
   await db
     .prepare(
       `INSERT INTO base_amounts (user_id, amount)
@@ -131,11 +125,10 @@ export async function sumWithdrawals(env, userId, date = null) {
     ? "SELECT SUM(amount) as total FROM withdrawals WHERE user_id = ? AND date = ?"
     : "SELECT SUM(amount) as total FROM withdrawals WHERE user_id = ?";
 
-  const stmt = date
-    ? db.prepare(query).bind(userId, date)
-    : db.prepare(query).bind(userId);
+  const res = date
+    ? await db.prepare(query).bind(userId, date).first()
+    : await db.prepare(query).bind(userId).first();
 
-  const res = await stmt.first();
   return res?.total || 0;
 }
 
@@ -198,6 +191,15 @@ export async function clearTempState(env, userId) {
     .prepare("DELETE FROM temp_state WHERE user_id = ?")
     .bind(userId)
     .run();
+}
+
+/* ================= RESET (FRESH CYCLE) ================= */
+
+export async function resetUserCycle(env, userId) {
+  const db = env.DB;
+  await db.prepare("DELETE FROM attempts WHERE user_id = ?").bind(userId).run();
+  await db.prepare("DELETE FROM withdrawals WHERE user_id = ?").bind(userId).run();
+  await db.prepare("DELETE FROM attempt_session WHERE user_id = ?").bind(userId).run();
 }
 
 /* ================= ADMIN ================= */

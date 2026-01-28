@@ -124,9 +124,9 @@ Discipline today → Wealth tomorrow 💎`,
     }
 
     if (text === "CONFIRM_RESET") {
-      await L.handleAmount(env, chatId, userId, 0); // trigger SET_BASE flow
-      return;
-    }
+  await L.confirmReset(env, chatId, userId);
+  return;
+}
 
     if (text === "CANCEL_RESET") {
       await send(env, chatId, "❎ Reset cancelled.", replyKeyboard());

@@ -98,7 +98,7 @@ await insertAttempt(env, userId, today, attemptNo, signedAmount);
 const count = await getTodayAttemptCount(env, userId, today);
 const left = Math.max(0, 10 - count);
 
-Attempts Left Today: ${left}
+"Attempts Left Today: ${left}"
 
   if (count >= MAX_ATTEMPTS) {
     await send(

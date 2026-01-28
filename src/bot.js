@@ -2,6 +2,7 @@ import {
   replyKeyboard,
   profitLossKeyboard,
   reportInlineKeyboard,
+  resetConfirmKeyboard,
   adminKeyboard
 } from "./keyboard";
 import * as L from "./logic";
@@ -24,7 +25,6 @@ export async function handleUpdate(update, env) {
     const msg = update.message;
     const cb = update.callback_query;
 
-    // ACK callback instantly
     if (cb?.id) {
       await fetch(
         `https://api.telegram.org/bot${env.BOT_TOKEN}/answerCallbackQuery`,
@@ -44,7 +44,7 @@ export async function handleUpdate(update, env) {
 
     if (!chatId || !userId || !text) return;
 
-    /* ================= START / HELP ================= */
+    /* START / HELP */
 
     if (text === "/start") {
       await send(
@@ -69,7 +69,7 @@ Discipline today → Wealth tomorrow 💎`,
       return;
     }
 
-    /* ================= REPLY KEYBOARD ================= */
+    /* REPLY KEYBOARD */
 
     if (text === "▶️ Start Attempt") {
       await L.startAttempt(env, chatId, userId);
@@ -101,7 +101,17 @@ Discipline today → Wealth tomorrow 💎`,
       return;
     }
 
-    /* ================= INLINE CALLBACKS ================= */
+    if (text === "🔄 Reset Base") {
+      await send(
+        env,
+        chatId,
+        "⚠️ This will reset base, profit, loss & balance.\nAre you sure?",
+        resetConfirmKeyboard()
+      );
+      return;
+    }
+
+    /* INLINE CALLBACKS */
 
     if (text === "RESULT_PROFIT") {
       await L.selectResult(env, chatId, userId, "PROFIT");
@@ -110,6 +120,16 @@ Discipline today → Wealth tomorrow 💎`,
 
     if (text === "RESULT_LOSS") {
       await L.selectResult(env, chatId, userId, "LOSS");
+      return;
+    }
+
+    if (text === "CONFIRM_RESET") {
+      await L.handleAmount(env, chatId, userId, 0); // trigger SET_BASE flow
+      return;
+    }
+
+    if (text === "CANCEL_RESET") {
+      await send(env, chatId, "❎ Reset cancelled.", replyKeyboard());
       return;
     }
 
@@ -128,7 +148,17 @@ Discipline today → Wealth tomorrow 💎`,
       return;
     }
 
-    /* ================= ADMIN ================= */
+    if (text === "/base_history") {
+      await L.baseHistory(env, chatId, userId);
+      return;
+    }
+
+    if (text === "/capital_stats") {
+      await L.capitalStats(env, chatId, userId);
+      return;
+    }
+
+    /* ADMIN */
 
     const ADMIN_ID = env.ADMIN_ID;
 
@@ -147,7 +177,7 @@ Discipline today → Wealth tomorrow 💎`,
       return;
     }
 
-    /* ================= NUMBER INPUT ================= */
+    /* NUMBER INPUT */
 
     if (/^\d+$/.test(text)) {
       await L.handleAmount(env, chatId, userId, Number(text));
@@ -163,4 +193,4 @@ Discipline today → Wealth tomorrow 💎`,
   } catch (err) {
     console.error("BOT ERROR:", err);
   }
-  }
+        }

@@ -6,7 +6,8 @@ export function replyKeyboard() {
     keyboard: [
       ["▶️ Start Attempt", "⏹ Stop Attempt"],
       ["💰 Balance", "💸 Withdraw"],
-      ["📊 Reports", "🆘 Help"]
+      ["📊 Reports", "🔄 Reset Base"],
+      ["🆘 Help"]
     ],
     resize_keyboard: true,
     one_time_keyboard: false
@@ -38,6 +39,24 @@ export function reportInlineKeyboard() {
       ],
       [
         { text: "🗓 Monthly", callback_data: "/monthly" }
+      ],
+      [
+        { text: "💰 Base History", callback_data: "/base_history" }
+      ],
+      [
+        { text: "📊 Capital Stats", callback_data: "/capital_stats" }
+      ]
+    ]
+  };
+}
+
+/* Reset confirmation inline keyboard */
+export function resetConfirmKeyboard() {
+  return {
+    inline_keyboard: [
+      [
+        { text: "✅ Yes Reset", callback_data: "CONFIRM_RESET" },
+        { text: "❌ Cancel", callback_data: "CANCEL_RESET" }
       ]
     ]
   };
@@ -53,4 +72,4 @@ export function adminKeyboard() {
       ]
     ]
   };
-          }
+}

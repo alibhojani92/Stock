@@ -91,8 +91,12 @@ export async function ensureBaseAmount(env, chatId, userId) {
 
 export async function startAttempt(env, chatId, userId) {
   const date = today();
-  const count = await getTodayAttemptCount(env, userId, today);
-const left = Math.max(0, 10 - count);
+  // AFTER profit/loss amount confirmed
+await insertAttempt(env, userId, today, attemptNo, signedAmount);
+
+// THEN compute attempts left
+const count = await getTodayAttemptCount(env, userId, today);
+const left = 10 - count;
 
 Attempts Left Today: ${left}
 

@@ -96,7 +96,7 @@ await insertAttempt(env, userId, today, attemptNo, signedAmount);
 
 // THEN compute attempts left
 const count = await getTodayAttemptCount(env, userId, today);
-const left = 10 - count;
+const left = Math.max(0, 10 - count);
 
 Attempts Left Today: ${left}
 

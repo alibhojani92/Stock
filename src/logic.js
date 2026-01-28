@@ -13,11 +13,12 @@ import {
   clearTempState,
   getBaseAmount,
   setBaseAmount,
+  resetUserCycle,
   getAllUsers,
   getUserSummary
 } from "./queries";
 
-const MAX_ATTEMPTS = 8;
+const MAX_ATTEMPTS = 10;
 
 /* ================= HELPERS ================= */
 
@@ -87,9 +88,23 @@ export async function ensureBaseAmount(env, chatId, userId) {
 /* ================= START ATTEMPT ================= */
 
 export async function startAttempt(env, chatId, userId) {
+  const date = today();
+  const count = await getTodayAttemptCount(env, userId, date);
+
+  if (count >= MAX_ATTEMPTS) {
+    await send(
+      env,
+      chatId,
+      `⚠️ Daily limit reached
+
+You have already completed ${MAX_ATTEMPTS} attempts today.
+Come back tomorrow 💪`
+    );
+    return;
+  }
+
   if (!(await ensureBaseAmount(env, chatId, userId))) return;
 
-  // ✅ DUPLICATE ATTEMPT DETECTION
   const active = await getSession(env, userId);
   if (active) {
     await send(
@@ -155,7 +170,7 @@ ${pick(PRAISE)}
 /* ================= RESULT SELECTION ================= */
 
 export async function selectResult(env, chatId, userId, type) {
-  await setTempState(env, userId, type); // PROFIT / LOSS
+  await setTempState(env, userId, type);
   await send(
     env,
     chatId,
@@ -177,19 +192,19 @@ export async function handleAmount(env, chatId, userId, amount) {
   const state = await getTempState(env, userId);
   const date = today();
 
-  /* ----- SET BASE (FIXED LOOP BUG) ----- */
   if (state === "SET_BASE") {
+    await resetUserCycle(env, userId);
     await setBaseAmount(env, userId, amount);
-    await clearTempState(env, userId); // ✅ VERY IMPORTANT
+    await clearTempState(env, userId);
     await send(
       env,
       chatId,
-      `✅ Base amount set to ₹${amount}\n🚀 You can start a new attempt now`
+      `✅ Base amount set to ₹${amount}
+🚀 Fresh cycle started. You can start a new attempt now`
     );
     return;
   }
 
-  /* ----- WITHDRAW ----- */
   if (state === "WITHDRAW") {
     const base = await getBaseAmount(env, userId);
     const profit = await sumProfit(env, userId);
@@ -215,11 +230,10 @@ Remaining Balance: ₹${balance - amount}`
     return;
   }
 
-  /* ----- PROFIT / LOSS ----- */
   if (state === "PROFIT" || state === "LOSS") {
     const count = await getTodayAttemptCount(env, userId, date);
     if (count >= MAX_ATTEMPTS) {
-      await send(env, chatId, "⚠️ Daily limit reached (8 attempts max)");
+      await send(env, chatId, "⚠️ Daily limit reached (10 attempts max)");
       return;
     }
 
@@ -288,4 +302,4 @@ export async function adminSummary(env, chatId, userId) {
 ━━━━━━━━━━━━
 💼 Balance: ₹${s.balance}`
   );
-}
+      }

@@ -297,6 +297,25 @@ export async function capitalStats(env, chatId, userId) {
   );
 }
 
+export async function confirmReset(env, chatId, userId) {
+  // full reset
+  await resetUserCycle(env, userId);
+
+  const db = env.DB;
+  await db.prepare("DELETE FROM base_amounts WHERE user_id=?").bind(userId).run();
+  await db.prepare("DELETE FROM base_history WHERE user_id=?").bind(userId).run();
+  await clearTempState(env, userId);
+
+  await fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text:
+        "♻️ Base reset completed.\n\n💰 Balance is ₹0\n👉 Enter new base amount to continue:"
+    })
+  });
+}
 /* ================= BALANCE ================= */
 
 export async function balance(env, chatId, userId) {

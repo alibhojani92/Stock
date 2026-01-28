@@ -26,25 +26,42 @@ export async function insertAttempt(env, userId, date, attemptNo, amount) {
 
 /* ================= PROFIT / LOSS ================= */
 
+export async function sumEarnings(env, userId, date = null) {
+  const db = getDB(env);
+  const query = date
+    ? "SELECT SUM(amount) as total FROM attempts WHERE user_id = ? AND date = ?"
+    : "SELECT SUM(amount) as total FROM attempts WHERE user_id = ?";
+
+  const res = date
+    ? await db.prepare(query).bind(userId, date).first()
+    : await db.prepare(query).bind(userId).first();
+
+  return res?.total || 0;
+}
+
 export async function sumProfit(env, userId, date = null) {
   const db = getDB(env);
-  const q = date
-    ? "SELECT SUM(amount) as total FROM attempts WHERE user_id=? AND amount>0 AND date=?"
-    : "SELECT SUM(amount) as total FROM attempts WHERE user_id=? AND amount>0";
+  const query = date
+    ? "SELECT SUM(amount) as total FROM attempts WHERE user_id = ? AND amount > 0 AND date = ?"
+    : "SELECT SUM(amount) as total FROM attempts WHERE user_id = ? AND amount > 0";
+
   const res = date
-    ? await db.prepare(q).bind(userId, date).first()
-    : await db.prepare(q).bind(userId).first();
+    ? await db.prepare(query).bind(userId, date).first()
+    : await db.prepare(query).bind(userId).first();
+
   return res?.total || 0;
 }
 
 export async function sumLoss(env, userId, date = null) {
   const db = getDB(env);
-  const q = date
-    ? "SELECT SUM(ABS(amount)) as total FROM attempts WHERE user_id=? AND amount<0 AND date=?"
-    : "SELECT SUM(ABS(amount)) as total FROM attempts WHERE user_id=? AND amount<0";
+  const query = date
+    ? "SELECT SUM(ABS(amount)) as total FROM attempts WHERE user_id = ? AND amount < 0 AND date = ?"
+    : "SELECT SUM(ABS(amount)) as total FROM attempts WHERE user_id = ? AND amount < 0";
+
   const res = date
-    ? await db.prepare(q).bind(userId, date).first()
-    : await db.prepare(q).bind(userId).first();
+    ? await db.prepare(query).bind(userId, date).first()
+    : await db.prepare(query).bind(userId).first();
+
   return res?.total || 0;
 }
 
@@ -53,10 +70,10 @@ export async function earningsByDate(env, userId, fromDate) {
   const res = await db
     .prepare(
       `SELECT date,
-              SUM(CASE WHEN amount>0 THEN amount ELSE 0 END) as profit,
-              SUM(CASE WHEN amount<0 THEN ABS(amount) ELSE 0 END) as loss
+              SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END) as profit,
+              SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END) as loss
        FROM attempts
-       WHERE user_id=? AND date>=?
+       WHERE user_id = ? AND date >= ?
        GROUP BY date
        ORDER BY date ASC`
     )
@@ -65,11 +82,12 @@ export async function earningsByDate(env, userId, fromDate) {
   return res?.results || [];
 }
 
-/* ================= BASE AMOUNT (ACCUMULATED) ================= */
+/* ================= BASE AMOUNT ================= */
 
 export async function setBaseAmount(env, userId, amount) {
   const db = getDB(env);
 
+  // accumulate base
   await db
     .prepare(
       `INSERT INTO base_amounts (user_id, amount)
@@ -80,7 +98,7 @@ export async function setBaseAmount(env, userId, amount) {
     .bind(userId, amount, amount)
     .run();
 
-  // history
+  // 🔹 B FEATURE: base history
   await db
     .prepare(
       `INSERT INTO base_history (user_id, date, amount)
@@ -93,20 +111,18 @@ export async function setBaseAmount(env, userId, amount) {
 export async function getBaseAmount(env, userId) {
   const db = getDB(env);
   const res = await db
-    .prepare("SELECT amount FROM base_amounts WHERE user_id=?")
+    .prepare("SELECT amount FROM base_amounts WHERE user_id = ?")
     .bind(userId)
     .first();
   return res?.amount || 0;
 }
 
+/* 🔹 B FEATURE */
 export async function getBaseHistory(env, userId) {
   const db = getDB(env);
   const res = await db
     .prepare(
-      `SELECT date, amount
-       FROM base_history
-       WHERE user_id=?
-       ORDER BY date ASC`
+      "SELECT date, amount FROM base_history WHERE user_id = ? ORDER BY date ASC"
     )
     .bind(userId)
     .all();
@@ -126,33 +142,123 @@ export async function insertWithdrawal(env, userId, date, amount) {
     .run();
 }
 
-export async function sumWithdrawals(env, userId) {
+export async function sumWithdrawals(env, userId, date = null) {
   const db = getDB(env);
-  const res = await db
-    .prepare("SELECT SUM(amount) as total FROM withdrawals WHERE user_id=?")
+  const query = date
+    ? "SELECT SUM(amount) as total FROM withdrawals WHERE user_id = ? AND date = ?"
+    : "SELECT SUM(amount) as total FROM withdrawals WHERE user_id = ?";
+
+  const res = date
+    ? await db.prepare(query).bind(userId, date).first()
+    : await db.prepare(query).bind(userId).first();
+
+  return res?.total || 0;
+}
+
+/* ================= ATTEMPT SESSION ================= */
+
+export async function setSession(env, userId, startTime) {
+  const db = env.DB;
+  await db
+    .prepare(
+      `INSERT INTO attempt_session (user_id, start_time)
+       VALUES (?, ?)
+       ON CONFLICT(user_id) DO UPDATE SET start_time = ?`
+    )
+    .bind(userId, startTime, startTime)
+    .run();
+}
+
+export async function getSession(env, userId) {
+  const db = env.DB;
+  return await db
+    .prepare("SELECT start_time FROM attempt_session WHERE user_id = ?")
     .bind(userId)
     .first();
-  return res?.total || 0;
+}
+
+export async function clearSession(env, userId) {
+  const db = env.DB;
+  await db
+    .prepare("DELETE FROM attempt_session WHERE user_id = ?")
+    .bind(userId)
+    .run();
+}
+
+/* ================= TEMP STATE ================= */
+
+export async function setTempState(env, userId, state) {
+  const db = env.DB;
+  await db
+    .prepare(
+      `INSERT INTO temp_state (user_id, state)
+       VALUES (?, ?)
+       ON CONFLICT(user_id) DO UPDATE SET state = ?`
+    )
+    .bind(userId, state, state)
+    .run();
+}
+
+export async function getTempState(env, userId) {
+  const db = env.DB;
+  const res = await db
+    .prepare("SELECT state FROM temp_state WHERE user_id = ?")
+    .bind(userId)
+    .first();
+  return res?.state || null;
+}
+
+export async function clearTempState(env, userId) {
+  const db = env.DB;
+  await db
+    .prepare("DELETE FROM temp_state WHERE user_id = ?")
+    .bind(userId)
+    .run();
 }
 
 /* ================= RESET ================= */
 
 export async function resetUserCycle(env, userId) {
   const db = env.DB;
-  await db.prepare("DELETE FROM attempts WHERE user_id=?").bind(userId).run();
-  await db.prepare("DELETE FROM withdrawals WHERE user_id=?").bind(userId).run();
-  await db.prepare("DELETE FROM attempt_session WHERE user_id=?").bind(userId).run();
+  await db.prepare("DELETE FROM attempts WHERE user_id = ?").bind(userId).run();
+  await db.prepare("DELETE FROM withdrawals WHERE user_id = ?").bind(userId).run();
+  await db.prepare("DELETE FROM attempt_session WHERE user_id = ?").bind(userId).run();
 }
 
-/* ================= ADMIN / STATS ================= */
+/* ================= ADMIN ================= */
 
-export async function getCapitalStats(env, userId) {
+export async function getAllUsers(env) {
+  const db = getDB(env);
+  const res = await db
+    .prepare("SELECT DISTINCT user_id FROM attempts")
+    .all();
+  return res?.results || [];
+}
+
+export async function getUserSummary(env, userId) {
   const [base, profit, loss, withdrawn] = await Promise.all([
     getBaseAmount(env, userId),
     sumProfit(env, userId),
     sumLoss(env, userId),
     sumWithdrawals(env, userId)
   ]);
+
+  return {
+    base,
+    profit,
+    loss,
+    withdrawn,
+    balance: base + profit - loss - withdrawn
+  };
+}
+
+/* 🔹 C FEATURE: CAPITAL VS PROFIT */
+
+export async function getCapitalStats(env, userId) {
+  const base = await getBaseAmount(env, userId);
+  const profit = await sumProfit(env, userId);
+  const loss = await sumLoss(env, userId);
+  const withdrawn = await sumWithdrawals(env, userId);
 
   const net = base + profit - loss - withdrawn;
   const roi = base > 0 ? ((profit - loss) / base) * 100 : 0;
@@ -165,4 +271,4 @@ export async function getCapitalStats(env, userId) {
     net,
     roi: Number(roi.toFixed(2))
   };
-    }
+}

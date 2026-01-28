@@ -15,7 +15,9 @@ import {
   setBaseAmount,
   resetUserCycle,
   getAllUsers,
-  getUserSummary
+  getUserSummary,
+  getBaseHistory,
+  getCapitalStats
 } from "./queries";
 
 const MAX_ATTEMPTS = 10;
@@ -63,7 +65,7 @@ async function send(env, chatId, text) {
   });
 }
 
-/* ================= BASE AMOUNT ================= */
+/* ================= BASE CHECK ================= */
 
 export async function ensureBaseAmount(env, chatId, userId) {
   const base = await getBaseAmount(env, userId);
@@ -124,7 +126,9 @@ Come back tomorrow 💪`
     `⏱ Attempt Started
 Start Time: ${formatIST(start)}
 
-${pick(MOTIVATION)}`
+${pick(MOTIVATION)}
+
+📊 Attempts Left Today: ${MAX_ATTEMPTS - count}`
   );
 }
 
@@ -163,11 +167,11 @@ Stop Time: ${formatIST(stop)}
 
 ${pick(PRAISE)}
 
-🟢 Select PROFIT or 🔴 LOSS from buttons below`
+🟢 Select PROFIT or 🔴 LOSS`
   );
 }
 
-/* ================= RESULT SELECTION ================= */
+/* ================= RESULT ================= */
 
 export async function selectResult(env, chatId, userId, type) {
   await setTempState(env, userId, type);
@@ -186,7 +190,7 @@ export async function withdrawStart(env, chatId, userId) {
   await send(env, chatId, "✍️ Enter withdrawal amount");
 }
 
-/* ================= HANDLE NUMBER INPUT ================= */
+/* ================= HANDLE NUMBER ================= */
 
 export async function handleAmount(env, chatId, userId, amount) {
   const state = await getTempState(env, userId);
@@ -200,7 +204,7 @@ export async function handleAmount(env, chatId, userId, amount) {
       env,
       chatId,
       `✅ Base amount set to ₹${amount}
-🚀 Fresh cycle started. You can start a new attempt now`
+🚀 Fresh cycle started`
     );
     return;
   }
@@ -233,7 +237,7 @@ Remaining Balance: ₹${balance - amount}`
   if (state === "PROFIT" || state === "LOSS") {
     const count = await getTodayAttemptCount(env, userId, date);
     if (count >= MAX_ATTEMPTS) {
-      await send(env, chatId, "⚠️ Daily limit reached (10 attempts max)");
+      await send(env, chatId, "⚠️ Daily limit reached");
       return;
     }
 
@@ -252,10 +256,48 @@ ${pick(PRAISE)}`
     return;
   }
 
-  await send(env, chatId, "⚠️ Unexpected input. Use buttons.");
+  await send(env, chatId, "⚠️ Unexpected input.");
 }
 
-/* ================= PROFILE / BALANCE ================= */
+/* ================= REPORTS ================= */
+
+export async function baseHistory(env, chatId, userId) {
+  const rows = await getBaseHistory(env, userId);
+  if (!rows.length) {
+    await send(env, chatId, "💰 No base history found.");
+    return;
+  }
+
+  let total = 0;
+  let text = "💰 Base History\n\n";
+  rows.forEach(r => {
+    total += r.amount;
+    text += `📅 ${r.date} → ₹${r.amount}\n`;
+  });
+
+  text += `━━━━━━━━━━━━\nTotal Capital Added: ₹${total}`;
+  await send(env, chatId, text);
+}
+
+export async function capitalStats(env, chatId, userId) {
+  const s = await getCapitalStats(env, userId);
+
+  await send(
+    env,
+    chatId,
+    `📊 Capital Analytics
+
+💰 Total Capital: ₹${s.base}
+📈 Total Profit: ₹${s.profit}
+📉 Total Loss: ₹${s.loss}
+💸 Withdrawn: ₹${s.withdrawn}
+━━━━━━━━━━━━
+💼 Net Balance: ₹${s.net}
+📊 ROI: ${s.roi}%`
+  );
+}
+
+/* ================= BALANCE ================= */
 
 export async function balance(env, chatId, userId) {
   const base = await getBaseAmount(env, userId);
@@ -302,4 +344,4 @@ export async function adminSummary(env, chatId, userId) {
 ━━━━━━━━━━━━
 💼 Balance: ₹${s.balance}`
   );
-      }
+    }

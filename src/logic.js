@@ -91,7 +91,10 @@ export async function ensureBaseAmount(env, chatId, userId) {
 
 export async function startAttempt(env, chatId, userId) {
   const date = today();
-  const count = await getTodayAttemptCount(env, userId, date);
+  const count = await getTodayAttemptCount(env, userId, today);
+const left = Math.max(0, 10 - count);
+
+Attempts Left Today: ${left}
 
   if (count >= MAX_ATTEMPTS) {
     await send(

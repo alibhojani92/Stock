@@ -269,3 +269,49 @@ export async function getCapitalStats(env, userId) {
     roi: Number(roi.toFixed(2))
   };
   }
+// TODAY REPORT
+export const TODAY_REPORT = `
+SELECT
+  SUM(base_added) AS base,
+  SUM(profit) AS profit,
+  SUM(loss) AS loss,
+  SUM(withdrawn) AS withdrawn
+FROM attempts
+WHERE user_id = ?
+AND date(created_at, 'localtime') = date('now', 'localtime')
+`;
+
+// WEEKLY REPORT
+export const WEEKLY_REPORT = `
+SELECT
+  date(created_at, 'localtime') AS day,
+  SUM(profit) AS profit,
+  SUM(loss) AS loss
+FROM attempts
+WHERE user_id = ?
+AND date(created_at, 'localtime') >= date('now', '-6 days', 'localtime')
+GROUP BY day
+ORDER BY day ASC
+`;
+
+// MONTHLY REPORT
+export const MONTHLY_REPORT = `
+SELECT
+  COUNT(DISTINCT date(created_at, 'localtime')) AS days,
+  SUM(profit) AS profit,
+  SUM(loss) AS loss
+FROM attempts
+WHERE user_id = ?
+AND strftime('%Y-%m', created_at, 'localtime') = strftime('%Y-%m', 'now', 'localtime')
+`;
+
+// CAPITAL STATS
+export const CAPITAL_STATS = `
+SELECT
+  SUM(base_added) AS capital,
+  SUM(profit) AS profit,
+  SUM(loss) AS loss,
+  SUM(withdrawn) AS withdrawn
+FROM attempts
+WHERE user_id = ?
+`;

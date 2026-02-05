@@ -44,32 +44,20 @@ export async function handleUpdate(update, env) {
 
     if (!chatId || !userId || !text) return;
 
-    /* START / HELP */
-
     if (text === "/start") {
       await send(
         env,
         chatId,
-        `👋 Welcome, ${firstName}!
-
-🚀 Compounding Tracking Bot 📈
-Discipline today → Wealth tomorrow 💎`,
+        `👋 Welcome, ${firstName}!\n\n🚀 Compounding Tracking Bot 📈`,
         replyKeyboard()
       );
       return;
     }
 
     if (text === "/help" || text === "🆘 Help") {
-      await send(
-        env,
-        chatId,
-        "🆘 Use the buttons below to control the bot.",
-        replyKeyboard()
-      );
+      await send(env, chatId, "🆘 Use buttons below.", replyKeyboard());
       return;
     }
-
-    /* REPLY KEYBOARD */
 
     if (text === "▶️ Start Attempt") {
       await L.startAttempt(env, chatId, userId);
@@ -77,7 +65,7 @@ Discipline today → Wealth tomorrow 💎`,
     }
 
     if (text === "⏹ Stop Attempt") {
-      await L.stopAttempt(env, chatId, userId);
+      await L.stopAttempt(env, chatId, userId, profitLossKeyboard());
       return;
     }
 
@@ -92,12 +80,7 @@ Discipline today → Wealth tomorrow 💎`,
     }
 
     if (text === "📊 Reports") {
-      await send(
-        env,
-        chatId,
-        "📊 Select report type:",
-        reportInlineKeyboard()
-      );
+      await send(env, chatId, "📊 Select report:", reportInlineKeyboard());
       return;
     }
 
@@ -105,13 +88,21 @@ Discipline today → Wealth tomorrow 💎`,
       await send(
         env,
         chatId,
-        "⚠️ This will reset base, profit, loss & balance.\nAre you sure?",
+        "⚠️ This will reset everything. Are you sure?",
         resetConfirmKeyboard()
       );
       return;
     }
 
-    /* INLINE CALLBACKS */
+    if (text === "CONFIRM_RESET") {
+      await L.confirmReset(env, chatId, userId);
+      return;
+    }
+
+    if (text === "CANCEL_RESET") {
+      await send(env, chatId, "❎ Reset cancelled.", replyKeyboard());
+      return;
+    }
 
     if (text === "RESULT_PROFIT") {
       await L.selectResult(env, chatId, userId, "PROFIT");
@@ -123,42 +114,11 @@ Discipline today → Wealth tomorrow 💎`,
       return;
     }
 
-    if (text === "CONFIRM_RESET") {
-  await L.confirmReset(env, chatId, userId);
-  return;
-}
-
-    if (text === "CANCEL_RESET") {
-      await send(env, chatId, "❎ Reset cancelled.", replyKeyboard());
-      return;
-    }
-
-    if (text === "/today") {
-      await R.todayReport(env, chatId, userId);
-      return;
-    }
-
-    if (text === "/weekly") {
-      await R.weeklyReport(env, chatId, userId);
-      return;
-    }
-
-    if (text === "/monthly") {
-      await R.monthlyReport(env, chatId, userId);
-      return;
-    }
-
-    if (text === "/base_history") {
-      await L.baseHistory(env, chatId, userId);
-      return;
-    }
-
-    if (text === "/capital_stats") {
-      await L.capitalStats(env, chatId, userId);
-      return;
-    }
-
-    /* ADMIN */
+    if (text === "/today") return R.todayReport(env, chatId, userId);
+    if (text === "/weekly") return R.weeklyReport(env, chatId, userId);
+    if (text === "/monthly") return R.monthlyReport(env, chatId, userId);
+    if (text === "/base_history") return L.baseHistory(env, chatId, userId);
+    if (text === "/capital_stats") return L.capitalStats(env, chatId, userId);
 
     const ADMIN_ID = env.ADMIN_ID;
 
@@ -177,20 +137,13 @@ Discipline today → Wealth tomorrow 💎`,
       return;
     }
 
-    /* NUMBER INPUT */
-
     if (/^\d+$/.test(text)) {
       await L.handleAmount(env, chatId, userId, Number(text));
       return;
     }
 
-    await send(
-      env,
-      chatId,
-      "❓ Unknown input. Use the buttons below.",
-      replyKeyboard()
-    );
+    await send(env, chatId, "❓ Unknown input.", replyKeyboard());
   } catch (err) {
     console.error("BOT ERROR:", err);
   }
-        }
+  }

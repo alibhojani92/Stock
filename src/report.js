@@ -21,8 +21,8 @@ function splitProfitLoss(rows) {
   let loss = 0;
 
   for (const r of rows) {
-    if (r.total > 0) profit += r.total;
-    if (r.total < 0) loss += Math.abs(r.total);
+    profit += r.profit || 0;
+    loss += r.loss || 0;
   }
 
   return { profit, loss };

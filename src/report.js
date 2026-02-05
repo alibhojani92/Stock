@@ -154,3 +154,8 @@ async function send(env, chatId, text) {
     body: JSON.stringify({ chat_id: chatId, text })
   });
 }
+const net =
+  (row.base || 0) +
+  (row.profit || 0) -
+  (row.loss || 0) -
+  (row.withdrawn || 0);

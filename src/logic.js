@@ -57,11 +57,15 @@ function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-async function send(env, chatId, text) {
+async function send(env, chatId, text, kb) {
   await fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text })
+    body: JSON.stringify({
+      chat_id: chatId,
+      text,
+      reply_markup: kb
+    })
   });
 }
 
@@ -91,14 +95,7 @@ export async function ensureBaseAmount(env, chatId, userId) {
 
 export async function startAttempt(env, chatId, userId) {
   const date = today();
-  // AFTER profit/loss amount confirmed
-await insertAttempt(env, userId, today, attemptNo, signedAmount);
-
-// THEN compute attempts left
-const count = await getTodayAttemptCount(env, userId, today);
-const left = Math.max(0, 10 - count);
-
-"Attempts Left Today: ${left}"
+  const count = await getTodayAttemptCount(env, userId, date);
 
   if (count >= MAX_ATTEMPTS) {
     await send(
@@ -141,7 +138,7 @@ ${pick(MOTIVATION)}
 
 /* ================= STOP ATTEMPT ================= */
 
-export async function stopAttempt(env, chatId, userId) {
+export async function stopAttempt(env, chatId, userId, kb) {
   const session = await getSession(env, userId);
   if (!session) {
     await send(env, chatId, "⚠️ No active attempt found.");
@@ -174,19 +171,21 @@ Stop Time: ${formatIST(stop)}
 
 ${pick(PRAISE)}
 
-🟢 Select PROFIT or 🔴 LOSS`
+🟢 Select PROFIT or 🔴 LOSS`,
+    kb
   );
 }
 
 /* ================= RESULT ================= */
 
 export async function selectResult(env, chatId, userId, type) {
-  await setTempState(env, userId, type);
-  await send(
-    env,
-    chatId,
-    `✍️ Enter ${type === "LOSS" ? "loss" : "profit"} amount`
-  );
+  if (type === "PROFIT") {
+    await setTempState(env, userId, "PROFIT");
+    await send(env, chatId, "✍️ Enter profit amount");
+  } else {
+    await setTempState(env, userId, "LOSS");
+    await send(env, chatId, "✍️ Enter loss amount");
+  }
 }
 
 /* ================= WITHDRAW ================= */
@@ -304,25 +303,24 @@ export async function capitalStats(env, chatId, userId) {
   );
 }
 
+/* ================= RESET ================= */
+
 export async function confirmReset(env, chatId, userId) {
-  // full reset
   await resetUserCycle(env, userId);
 
   const db = env.DB;
   await db.prepare("DELETE FROM base_amounts WHERE user_id=?").bind(userId).run();
   await db.prepare("DELETE FROM base_history WHERE user_id=?").bind(userId).run();
+
   await setTempState(env, userId, "SET_BASE");
 
-  await fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text:
-        "♻️ Base reset completed.\n\n💰 Balance is ₹0\n👉 Enter new base amount to continue:"
-    })
-  });
+  await send(
+    env,
+    chatId,
+    "♻️ Base reset completed.\n\n💰 Balance is ₹0\n👉 Enter new base amount to continue:"
+  );
 }
+
 /* ================= BALANCE ================= */
 
 export async function balance(env, chatId, userId) {
@@ -370,4 +368,4 @@ export async function adminSummary(env, chatId, userId) {
 ━━━━━━━━━━━━
 💼 Balance: ₹${s.balance}`
   );
-    }
+}

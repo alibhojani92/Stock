@@ -369,3 +369,14 @@ export async function adminSummary(env, chatId, userId) {
 💼 Balance: ₹${s.balance}`
   );
 }
+// PROFIT
+await env.DB.prepare(`
+INSERT INTO attempts (user_id, profit, loss, withdrawn, base_added, created_at)
+VALUES (?, ?, 0, 0, 0, datetime('now'))
+`).bind(userId, amount).run();
+
+// LOSS  ❗️amount POSITIVE
+await env.DB.prepare(`
+INSERT INTO attempts (user_id, profit, loss, withdrawn, base_added, created_at)
+VALUES (?, 0, ?, 0, 0, datetime('now'))
+`).bind(userId, amount).run();

@@ -87,7 +87,6 @@ export async function earningsByDate(env, userId, fromDate) {
 export async function setBaseAmount(env, userId, amount) {
   const db = getDB(env);
 
-  // accumulate base
   await db
     .prepare(
       `INSERT INTO base_amounts (user_id, amount)
@@ -98,7 +97,6 @@ export async function setBaseAmount(env, userId, amount) {
     .bind(userId, amount, amount)
     .run();
 
-  // 🔹 B FEATURE: base history
   await db
     .prepare(
       `INSERT INTO base_history (user_id, date, amount)
@@ -117,7 +115,6 @@ export async function getBaseAmount(env, userId) {
   return res?.amount || 0;
 }
 
-/* 🔹 B FEATURE */
 export async function getBaseHistory(env, userId) {
   const db = getDB(env);
   const res = await db
@@ -252,7 +249,7 @@ export async function getUserSummary(env, userId) {
   };
 }
 
-/* 🔹 C FEATURE: CAPITAL VS PROFIT */
+/* ================= CAPITAL STATS ================= */
 
 export async function getCapitalStats(env, userId) {
   const base = await getBaseAmount(env, userId);
@@ -271,4 +268,4 @@ export async function getCapitalStats(env, userId) {
     net,
     roi: Number(roi.toFixed(2))
   };
-}
+  }
